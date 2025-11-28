@@ -1,1 +1,1287 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cyber Life Simulator v5.1</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; touch-action: manipulation; user-select: none; font-family: 'Courier New', monospace; }
+        
+        /* CRT Effects */
+        .scanline::after {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.05), transparent);
+            animation: scanline 6s linear infinite; pointer-events: none; z-index: 50;
+        }
+        @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+        
+        .crt-lines {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%; pointer-events: none;
+        }
 
+        /* Animations */
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .float { animation: float 3s ease-in-out infinite; }
+        
+        @keyframes glitch {
+            0% { transform: translate(0); } 20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); } 100% { transform: translate(0); }
+        }
+        .glitch-hover:hover { animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+        /* HUD Bars */
+        .bar-container { background: #222; height: 6px; width: 80px; border: 1px solid #444; border-radius: 2px; overflow: hidden; }
+        .bar-fill { height: 100%; transition: width 0.5s; }
+
+        /* Room Transition */
+        #worldContainer { transition: transform 0.5s ease-in-out; }
+
+        /* OS Styles */
+        .window {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #1e293b; border: 1px solid #475569;
+            box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
+            display: none; flex-direction: column;
+            overflow: hidden;
+            animation: popIn 0.1s ease-out;
+        }
+        .window.active { display: flex; z-index: 30; }
+        .title-bar {
+            background: linear-gradient(90deg, #0f172a, #1e293b);
+            padding: 4px 8px; display: flex; justify-content: space-between; items-center;
+            border-bottom: 1px solid #334155; cursor: grab;
+        }
+        .desktop-icon {
+            width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+            cursor: pointer; padding: 8px; border: 1px solid transparent; border-radius: 4px;
+        }
+        .desktop-icon:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+        
+        @keyframes popIn { from { transform: translate(-50%, -50%) scale(0.9); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+    </style>
+</head>
+<body class="h-screen w-screen text-white bg-black overflow-hidden">
+
+    <!-- === GAME WORLD === -->
+    <div id="worldContainer" class="absolute inset-0 flex w-[400vw] h-full">
+        
+        <!-- ROOM 1: KITCHEN (Index 0) -->
+        <div class="w-screen h-full relative bg-gray-900 border-r border-black flex items-center justify-center overflow-hidden">
+            <div class="absolute inset-0 opacity-30 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48cGF0aCBkPSJNMCAwaDQwdjQwejM4VjJIMnYzOHoiIGZpbGw9IiMzMzMiIGZpbGwtb3BhY2l0eT0iMC40Ii8+PC9zdmc+')]"></div>
+            <div class="absolute bottom-0 h-[30%] w-full bg-[#2a2a2c] border-t border-gray-700"></div>
+
+            <!-- Fridge -->
+            <div onclick="openFridge()" class="absolute bottom-20 left-1/3 w-40 h-80 bg-gray-300 border-4 border-gray-400 rounded shadow-lg cursor-pointer hover:brightness-110 transition group z-20 flex flex-col items-center">
+                <div class="w-full h-[40%] border-b-4 border-gray-400 relative bg-gray-200">
+                    <div class="absolute top-4 right-4 w-2 h-8 bg-gray-400 rounded"></div>
+                </div>
+                <div class="relative h-[60%] w-full bg-gray-200">
+                    <div class="absolute top-4 right-4 w-2 h-12 bg-gray-400 rounded"></div>
+                    <div class="absolute top-10 left-1/2 -translate-x-1/2 text-[8px] text-gray-400 font-mono">FOOD STATION</div>
+                </div>
+                <div class="absolute inset-0 bg-blue-400/0 group-hover:bg-blue-400/10 transition duration-300 pointer-events-none"></div>
+            </div>
+            <div class="absolute top-10 text-gray-600 font-bold text-4xl select-none">KITCHEN</div>
+        </div>
+
+        <!-- ROOM 2: BEDROOM (Index 1) -->
+        <div class="w-screen h-full relative bg-gray-900 flex items-center justify-center overflow-hidden">
+             <div class="absolute inset-0 bg-gray-900">
+                <div class="absolute top-0 h-[60%] w-full bg-gray-800 border-b-4 border-black shadow-2xl"></div> 
+                <div class="absolute bottom-0 h-[40%] w-full bg-[#1a1a1c]"></div>
+            </div>
+
+            <!-- Container -->
+            <div class="relative w-[800px] h-[600px] max-w-full max-h-full pointer-events-none">
+                
+                <!-- Trash / Mess -->
+                <div class="absolute bottom-10 left-20 w-12 h-8 bg-orange-900/50 border border-orange-800 rotate-12 opacity-80 z-10"></div>
+                <div class="absolute bottom-12 left-32 w-8 h-8 bg-slate-700/50 border border-slate-600 -rotate-12 opacity-60 z-10 rounded-full"></div>
+                <div class="absolute bottom-24 right-40 w-10 h-10 bg-gray-700 rounded-full border border-gray-600 opacity-60 z-10"></div>
+
+                <!-- Furniture Slots -->
+                <div id="room-rug" class="absolute bottom-10 left-1/2 -translate-x-1/2 w-96 h-32 bg-red-900/30 border-4 border-red-900/50 rounded-full opacity-0 transition-opacity duration-500 z-0 blur-sm"></div>
+                
+                <div id="room-poster" class="absolute top-20 left-1/4 w-32 h-48 bg-black border-2 border-pink-500 shadow-[0_0_20px_#ec4899] opacity-0 transition-opacity duration-500 z-0">
+                    <div class="w-full h-full flex items-center justify-center text-pink-500 font-bold text-xs text-center">CYBER<br>PUNK</div>
+                </div>
+
+                <div id="room-neon" class="absolute top-10 right-1/4 w-64 h-2 bg-cyan-400 shadow-[0_0_20px_cyan] opacity-0 transition-opacity duration-500 z-0"></div>
+
+                <div id="room-plant" class="absolute bottom-32 right-10 w-24 h-40 flex flex-col items-center opacity-0 transition-opacity duration-500 z-20">
+                     <div class="w-16 h-16 bg-green-700 rounded-full blur-sm"></div>
+                     <div class="w-20 h-24 bg-orange-800 border-t-4 border-orange-700"></div>
+                </div>
+
+                <div id="room-server" class="absolute top-32 right-10 w-40 h-96 bg-gray-900 border border-gray-700 shadow-xl flex flex-col gap-2 p-2 opacity-0 transition-opacity duration-500 z-0">
+                    <div class="w-full h-2 bg-green-500 shadow-[0_0_5px_#22c55e] animate-pulse"></div>
+                    <div class="w-full h-2 bg-green-500 shadow-[0_0_5px_#22c55e] animate-pulse delay-75"></div>
+                    <div class="w-full h-2 bg-green-500 shadow-[0_0_5px_#22c55e] animate-pulse delay-150"></div>
+                </div>
+
+                <!-- Desk & PC -->
+                <div class="absolute bottom-32 left-1/2 -translate-x-1/2 w-[500px] h-16 bg-gray-700 border-b-8 border-gray-800 shadow-lg z-20 pointer-events-auto"></div>
+                <div class="absolute bottom-0 left-1/2 -translate-x-[200px] w-4 h-32 bg-gray-600 z-10"></div>
+                <div class="absolute bottom-0 left-1/2 translate-x-[200px] w-4 h-32 bg-gray-600 z-10"></div>
+
+                <!-- Character & Chair -->
+                <div class="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center pointer-events-none">
+                    <!-- Chair Back -->
+                    <div class="w-32 h-48 bg-black border-4 border-gray-700 rounded-t-xl absolute -top-24 z-0"></div>
+                    <!-- Body -->
+                    <div class="relative z-10 flex flex-col items-center float">
+                        <div class="w-28 h-16 bg-slate-800 rounded-t-2xl border-b border-black"></div> <!-- Shoulders -->
+                        <div class="w-16 h-16 bg-neutral-200 rounded-full shadow-lg border-2 border-neutral-300 -mt-10 relative"> <!-- Head -->
+                            <div class="absolute top-4 left-3 w-2 h-2 bg-black rounded-full animate-pulse"></div> <!-- Eye L -->
+                            <div class="absolute top-4 right-3 w-2 h-2 bg-black rounded-full animate-pulse"></div> <!-- Eye R -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Computer Monitor -->
+                <div onclick="enterComputer()" class="absolute bottom-48 left-1/2 -translate-x-1/2 w-64 h-40 bg-gray-800 rounded p-2 cursor-pointer z-30 hover:scale-105 transition-transform duration-200 group pointer-events-auto shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+                    <div class="w-full h-full bg-black border border-blue-500/30 relative overflow-hidden flex items-center justify-center">
+                        <div class="absolute inset-0 bg-blue-500/10 animate-pulse"></div>
+                        <div class="text-[10px] text-blue-400 font-mono z-10 text-center pointer-events-none">
+                            <div>CyberOS</div>
+                            <div class="mt-1 animate-bounce">CLICK TO LOGIN</div>
+                        </div>
+                    </div>
+                    <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 w-8 h-4 bg-gray-700"></div>
+                    <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 w-20 h-2 bg-gray-700"></div>
+                </div>
+            </div>
+            <div class="absolute top-10 text-gray-600 font-bold text-4xl select-none">BEDROOM</div>
+        </div>
+
+        <!-- ROOM 3: LIVING ROOM (Index 2) -->
+        <div class="w-screen h-full relative bg-gray-900 border-l border-black flex items-center justify-center overflow-hidden">
+             <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDIwIDIwIj48ZyBmaWxsPSIjMjIyIj48Y2lyY2xlIGN4PSIyIiBjeT0iMiIgcj0iMSIvPjwvZz48L3N2Zz4=')] opacity-20"></div>
+             <div class="absolute bottom-0 h-[25%] w-full bg-[#3a3a3c]"></div>
+             
+             <!-- Sofa -->
+             <div class="absolute bottom-20 w-96 h-32 bg-indigo-900 rounded-t-xl border-b-8 border-black shadow-2xl"></div>
+             
+             <!-- TV -->
+             <div class="absolute bottom-20 right-10 w-64 h-48 bg-black border border-gray-800 flex items-center justify-center">
+                 <div class="text-gray-700 font-mono text-xs animate-pulse">NO SIGNAL</div>
+             </div>
+            
+            <!-- Door to Street -->
+            <div onclick="moveRoom(1)" class="absolute bottom-20 left-10 w-32 h-64 bg-[#1a1a1a] border-4 border-gray-800 cursor-pointer hover:brightness-125 transition group z-20 flex items-center justify-center overflow-hidden">
+                 <div class="absolute inset-0 bg-red-900/20 group-hover:bg-red-900/40 transition"></div>
+                 <div class="w-2 h-2 bg-red-500 rounded-full absolute top-1/2 right-2 shadow-[0_0_5px_red]"></div>
+                 <div class="absolute top-10 text-gray-600 font-mono text-xs group-hover:text-white transition">STREET</div>
+                 <div class="absolute bottom-0 w-full h-2 bg-yellow-900/50"></div>
+            </div>
+
+            <div class="absolute top-10 text-gray-600 font-bold text-4xl select-none">LIVING ROOM</div>
+        </div>
+
+        <!-- ROOM 4: STREET (Index 3) -->
+        <div class="w-screen h-full relative bg-black flex items-center justify-center overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-b from-purple-900/20 to-black"></div>
+            
+            <!-- City Background -->
+            <div class="absolute bottom-20 left-0 w-20 h-96 bg-gray-900 z-0"></div>
+            <div class="absolute bottom-20 right-10 w-40 h-[500px] bg-gray-800 z-0 border-l border-gray-700">
+                <div class="w-full h-full grid grid-cols-2 gap-4 p-4">
+                    <div class="bg-yellow-500/10 h-4 w-4"></div><div class="bg-yellow-500/10 h-4 w-4"></div>
+                </div>
+            </div>
+
+            <!-- Street Floor -->
+            <div class="absolute bottom-0 h-20 w-full bg-[#111] border-t border-gray-800 z-10"></div>
+            
+            <!-- Rain Effect Overlay -->
+            <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQwIj48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxMCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] animate-[scanline_0.5s_linear_infinite] opacity-30 pointer-events-none"></div>
+            
+            <div class="z-20 text-center mb-20">
+                <h1 class="text-6xl font-bold text-purple-500 glitch-hover mb-4">NIGHT CITY</h1>
+                <div class="text-gray-400 font-mono text-sm bg-black/50 p-2 rounded border border-gray-800">SECTOR 7 [SAFE ZONE]</div>
+                <p class="text-xs text-gray-600 mt-4">More content coming in v6.0...</p>
+            </div>
+
+            <button onclick="moveRoom(-1)" class="absolute bottom-32 left-10 text-white hover:text-blue-400 cursor-pointer z-30 font-mono text-xl flex items-center gap-2">
+                <span>⬅</span> GO HOME
+            </button>
+        </div>
+    </div>
+
+    <!-- === HUD & NAV === -->
+    <div id="navUI" class="absolute inset-0 pointer-events-none z-40 flex items-center justify-between px-4">
+        <button onclick="moveRoom(-1)" id="btnLeft" class="pointer-events-auto bg-gray-800/50 hover:bg-gray-700 text-white w-12 h-24 flex items-center justify-center rounded text-2xl transition opacity-0 cursor-default">❮</button>
+        <button onclick="moveRoom(1)" id="btnRight" class="pointer-events-auto bg-gray-800/50 hover:bg-gray-700 text-white w-12 h-24 flex items-center justify-center rounded text-2xl transition cursor-pointer">❯</button>
+    </div>
+
+    <div id="survivalHUD" class="absolute top-4 left-4 bg-black/80 p-3 rounded border border-gray-700 flex flex-col gap-2 z-50 transition-opacity duration-500 select-none">
+        <div class="flex items-center justify-between gap-2 text-xs font-mono">
+            <span class="text-red-400 w-12">HP</span>
+            <div class="bar-container"><div id="bar-health" class="bar-fill bg-red-600" style="width: 100%"></div></div>
+        </div>
+        <div class="flex items-center justify-between gap-2 text-xs font-mono">
+            <span class="text-green-400 w-12">FOOD</span>
+            <div class="bar-container"><div id="bar-hunger" class="bar-fill bg-green-600" style="width: 100%"></div></div>
+        </div>
+        <div class="flex items-center justify-between gap-2 text-xs font-mono">
+            <span class="text-blue-400 w-12">H2O</span>
+            <div class="bar-container"><div id="bar-thirst" class="bar-fill bg-blue-600" style="width: 100%"></div></div>
+        </div>
+        <div class="mt-2 pt-2 border-t border-gray-800 text-right">
+            <div class="text-xs text-gray-500">WALLET</div>
+            <div class="text-green-400 font-bold font-mono"><span id="room-balance">0</span> ₿</div>
+        </div>
+    </div>
+
+    <!-- === DEATH SCREEN === -->
+    <div id="deathScreen" class="fixed inset-0 bg-[#111]/95 z-[100] hidden flex-col items-center justify-center text-center backdrop-blur-sm">
+        <div class="border-2 border-red-900/30 p-12 rounded bg-black/90 shadow-2xl relative overflow-hidden max-w-lg w-full">
+            <h1 class="text-4xl font-bold text-red-500 mb-2 tracking-widest glitch-hover">CONNECTION LOST</h1>
+            <p class="text-sm text-gray-500 font-mono mb-8">BIOLOGICAL SIGNAL NOT FOUND</p>
+            <div class="w-full h-px bg-red-900/50 mb-8"></div>
+            <button onclick="respawn()" class="w-full py-3 bg-red-900/10 border border-red-800/50 text-red-400 font-bold hover:bg-red-900/30 hover:text-white transition cursor-pointer tracking-[0.2em]">
+                RECONNECT [PENALTY: 50% BITS]
+            </button>
+        </div>
+    </div>
+
+    <!-- === FRIDGE UI === -->
+    <div id="fridgeUI" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center">
+        <div class="bg-gray-800 border-2 border-gray-500 p-6 w-96 max-w-full rounded shadow-2xl relative">
+            <button onclick="closeFridge()" class="absolute top-2 right-2 text-gray-400 hover:text-white text-xl cursor-pointer">✕</button>
+            <h2 class="text-2xl font-bold text-blue-300 mb-4 flex items-center gap-2">❄️ FOOD STORAGE</h2>
+            <div class="space-y-2">
+                <div onclick="buyFood('soda')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
+                    <div class="flex items-center gap-3"><div class="text-2xl">🥤</div><div><div class="font-bold text-blue-400">Cola</div><div class="text-[10px] text-gray-400">+30 Water</div></div></div><div class="font-mono text-yellow-400">50 ₿</div>
+                </div>
+                <div onclick="buyFood('pizza')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
+                    <div class="flex items-center gap-3"><div class="text-2xl">🍕</div><div><div class="font-bold text-orange-400">Pizza</div><div class="text-[10px] text-gray-400">+40 Food</div></div></div><div class="font-mono text-yellow-400">150 ₿</div>
+                </div>
+                <div onclick="buyFood('energy')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
+                    <div class="flex items-center gap-3"><div class="text-2xl">⚡</div><div><div class="font-bold text-purple-400">Energy</div><div class="text-[10px] text-gray-400">FULL RESTORE</div></div></div><div class="font-mono text-yellow-400">300 ₿</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === COMPUTER OS === -->
+    <div id="computerView" class="fixed inset-0 bg-black z-50 hidden flex-col font-sans">
+        <div class="absolute inset-0 pointer-events-none z-50 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wMykiLz48L3N2Zz4=')]"></div>
+        <div class="absolute inset-0 bg-slate-900/90 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center"></div>
+        
+        <!-- Desktop -->
+        <div id="desktop-grid" class="absolute inset-0 p-4 flex flex-col flex-wrap content-start gap-4 z-10">
+            <div onclick="openApp('miner')" class="desktop-icon text-white shadow-black drop-shadow-md">
+                <div class="w-12 h-12 bg-blue-600 rounded flex items-center justify-center text-2xl">⛏️</div>
+                <div class="text-xs text-center bg-black/50 px-1 rounded">Miner.exe</div>
+            </div>
+            <div onclick="openApp('market')" class="desktop-icon text-white shadow-black drop-shadow-md">
+                <div class="w-12 h-12 bg-green-600 rounded flex items-center justify-center text-2xl">📈</div>
+                <div class="text-xs text-center bg-black/50 px-1 rounded">Trade</div>
+            </div>
+            <div onclick="openApp('shop')" class="desktop-icon text-white shadow-black drop-shadow-md">
+                <div class="w-12 h-12 bg-purple-600 rounded flex items-center justify-center text-2xl">🧅</div>
+                <div class="text-xs text-center bg-black/50 px-1 rounded">DarkNet</div>
+            </div>
+            <div onclick="openApp('cmd')" class="desktop-icon text-white shadow-black drop-shadow-md">
+                <div class="w-12 h-12 bg-black border border-gray-500 rounded flex items-center justify-center text-lg font-mono text-green-500">>_</div>
+                <div class="text-xs text-center bg-black/50 px-1 rounded">Terminal</div>
+            </div>
+            <div onclick="openApp('browser')" class="desktop-icon text-white shadow-black drop-shadow-md">
+                <div class="w-12 h-12 bg-orange-500 rounded flex items-center justify-center text-2xl">🌐</div>
+                <div class="text-xs text-center bg-black/50 px-1 rounded">NetScape</div>
+            </div>
+            <div onclick="openApp('store')" class="desktop-icon text-white shadow-black drop-shadow-md">
+                <div class="w-12 h-12 bg-sky-500 rounded flex items-center justify-center text-2xl">🛍️</div>
+                <div class="text-xs text-center bg-black/50 px-1 rounded">dStore</div>
+            </div>
+        </div>
+
+        <!-- Windows -->
+        
+        <!-- MINER WINDOW -->
+        <div id="win-miner" class="window w-[800px] h-[500px] max-w-full max-h-full rounded-t-lg border-gray-600">
+            <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-miner')">
+                <span class="text-xs font-bold text-gray-300">C:\Users\Hacker\Miner.exe</span>
+                <button onclick="closeApp('miner')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <div class="flex-1 bg-black/90 p-4 flex gap-4 overflow-hidden">
+                <div class="flex-1 bg-black/50 border border-blue-900/30 rounded p-4 flex flex-col items-center justify-center relative overflow-hidden">
+                    <canvas id="matrixCanvas" class="absolute inset-0 opacity-20 pointer-events-none"></canvas>
+                    <div class="z-10 text-center mb-6">
+                        <div class="text-gray-400 text-xs mb-1">HASHRATE</div>
+                        <div class="text-4xl font-bold text-blue-500 drop-shadow-lg"><span id="bitsDisplay">0</span></div>
+                        <div class="text-green-400 text-sm mt-2">+<span id="autoRate">0</span> / sec</div>
+                    </div>
+                    <button id="mainBtn" class="w-48 h-48 rounded-full bg-gradient-to-b from-gray-800 to-gray-900 border-4 border-blue-600 shadow-[0_0_50px_rgba(37,99,235,0.3)] active:scale-95 transition-transform flex items-center justify-center group cursor-pointer z-20">
+                        <div class="text-6xl group-hover:text-blue-400 transition-colors pointer-events-none">💠</div>
+                    </button>
+                </div>
+                <div class="w-64 bg-gray-800/80 border-l border-gray-700 flex flex-col overflow-hidden">
+                    <div class="p-3 bg-gray-900 font-bold text-blue-300 text-sm shrink-0">HARDWARE</div>
+                    <div id="minerUpgrades" class="overflow-y-auto flex-1 p-2 space-y-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MARKET WINDOW -->
+        <div id="win-market" class="window w-[700px] h-[500px] rounded-t-lg border-gray-600">
+            <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-market')">
+                <span class="text-xs font-bold text-gray-300">CryptoExchange v2.0</span>
+                <button onclick="closeApp('market')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <div class="flex-1 bg-black flex flex-col">
+                <div class="flex-1 relative min-h-0 p-4">
+                     <div class="absolute top-4 left-4 z-10 pointer-events-none">
+                        <h2 class="text-2xl font-bold text-yellow-500">BTC / USD</h2>
+                        <div class="text-4xl text-white font-mono mt-2">$<span id="cryptoPrice">0.00</span></div>
+                    </div>
+                    <canvas id="chartCanvas" class="w-full h-full block"></canvas>
+                </div>
+                <div class="h-24 bg-gray-800 p-4 flex items-center justify-between border-t border-gray-700 shrink-0">
+                    <div>
+                        <div class="text-gray-400 text-xs">WALLET</div>
+                        <div class="text-xl font-bold text-yellow-400"><span id="cryptoWallet">0.0000</span> BTC</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="tradeCrypto('buy')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold text-sm cursor-pointer">BUY (50%)</button>
+                        <button onclick="tradeCrypto('sell')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded font-bold text-sm cursor-pointer">SELL ALL</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SHOP WINDOW -->
+        <div id="win-shop" class="window w-[600px] h-[500px] rounded-t-lg border-gray-600">
+            <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-shop')">
+                <span class="text-xs font-bold text-gray-300">Tor Browser - DarkMarket</span>
+                <button onclick="closeApp('shop')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <div class="flex-1 bg-gray-900 flex flex-col overflow-hidden">
+                 <div class="flex p-4 bg-purple-900/20 border-b border-purple-500/30 shrink-0 justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold text-purple-400">DARKWEB DECOR</h2>
+                        <p class="text-xs text-purple-300">Anonymous Delivery. No Refunds.</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-gray-400">Upgrade your room</div>
+                    </div>
+                </div>
+                <div id="shopGrid" class="grid grid-cols-2 gap-4 p-4 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- CMD WINDOW -->
+        <div id="win-cmd" class="window w-[600px] h-[400px] rounded-t-lg border-gray-600">
+            <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-cmd')">
+                <span class="text-xs font-bold text-gray-300">Admin Terminal</span>
+                <button onclick="closeApp('cmd')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <div class="flex-1 bg-black p-2 font-mono text-green-500 text-sm overflow-hidden flex flex-col">
+                <div id="cmd-output" class="flex-1 overflow-y-auto mb-2 whitespace-pre-wrap break-words">System initialized...<br>Type 'help' for commands.</div>
+                <div class="flex gap-2 border-t border-gray-800 pt-2">
+                    <span>root@pc:~$</span>
+                    <input id="cmd-input" type="text" class="flex-1 bg-transparent border-none outline-none text-white placeholder-gray-700" placeholder="..." onkeydown="handleCmd(event)" autocomplete="off">
+                </div>
+            </div>
+        </div>
+
+        <!-- BROWSER WINDOW -->
+        <div id="win-browser" class="window w-[800px] h-[600px] rounded-t-lg border-gray-600">
+            <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-browser')">
+                <span class="text-xs font-bold text-gray-300">NetScape 2077</span>
+                <button onclick="closeApp('browser')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <div class="h-10 bg-gray-200 flex items-center px-2 gap-2 border-b border-gray-400 shrink-0">
+                <button class="text-gray-500 hover:text-black">◀</button>
+                <button class="text-gray-500 hover:text-black">▶</button>
+                <button class="text-gray-500 hover:text-black">↻</button>
+                <input id="browser-url" type="text" class="flex-1 bg-white border border-gray-300 rounded px-2 text-sm text-black font-sans" value="http://welcome.dat" onkeydown="handleBrowser(event)">
+                <button onclick="goBrowser()" class="bg-blue-600 text-white px-3 rounded text-xs font-bold">GO</button>
+            </div>
+            <div id="browser-content" class="flex-1 bg-white text-black p-0 font-serif overflow-y-auto">
+                <!-- Content Injected via JS -->
+            </div>
+        </div>
+
+        <!-- APP STORE WINDOW -->
+        <div id="win-store" class="window w-[600px] h-[450px] rounded-t-lg border-gray-600">
+            <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-store')">
+                <span class="text-xs font-bold text-gray-300">dStore - Apps & Games</span>
+                <button onclick="closeApp('store')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <div class="flex-1 bg-slate-100 text-slate-900 flex flex-col">
+                <div class="p-4 bg-gradient-to-r from-sky-500 to-blue-600 text-white shrink-0">
+                    <h2 class="text-2xl font-bold">Featured Apps</h2>
+                    <p class="text-xs opacity-80">Download new software for your system.</p>
+                </div>
+                <div class="p-4 grid grid-cols-1 gap-2 overflow-y-auto">
+                    
+                    <!-- Snake -->
+                    <div class="bg-white p-3 rounded shadow flex justify-between items-center">
+                        <div class="flex gap-3 items-center">
+                            <div class="w-10 h-10 bg-green-600 rounded flex items-center justify-center text-white text-lg">🐍</div>
+                            <div>
+                                <div class="font-bold">Snake.exe</div>
+                                <div class="text-xs text-gray-500">Classic arcade game</div>
+                            </div>
+                        </div>
+                        <button onclick="installApp('snake')" id="btn-install-snake" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">
+                            GET
+                        </button>
+                    </div>
+
+                    <!-- VirtuBox -->
+                    <div class="bg-white p-3 rounded shadow flex justify-between items-center">
+                        <div class="flex gap-3 items-center">
+                            <div class="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center text-white text-lg">💻</div>
+                            <div>
+                                <div class="font-bold">VirtuBox</div>
+                                <div class="text-xs text-gray-500">Remote OS Controller</div>
+                            </div>
+                        </div>
+                        <button onclick="installApp('vm')" id="btn-install-vm" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">
+                            GET
+                        </button>
+                    </div>
+
+                    <!-- HR Manager -->
+                    <div class="bg-white p-3 rounded shadow flex justify-between items-center">
+                        <div class="flex gap-3 items-center">
+                            <div class="w-10 h-10 bg-orange-600 rounded flex items-center justify-center text-white text-lg">👔</div>
+                            <div>
+                                <div class="font-bold">HR Manager</div>
+                                <div class="text-xs text-gray-500">Hire staff to work for you</div>
+                            </div>
+                        </div>
+                        <button onclick="installApp('staff')" id="btn-install-staff" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">
+                            GET
+                        </button>
+                    </div>
+                    
+                     <div class="bg-white p-3 rounded shadow flex justify-between items-center opacity-50 cursor-not-allowed">
+                        <div class="flex gap-3 items-center">
+                            <div class="w-10 h-10 bg-red-600 rounded flex items-center justify-center text-white text-lg">🔫</div>
+                            <div>
+                                <div class="font-bold">Doom.wad</div>
+                                <div class="text-xs text-gray-500">Not compatible with OS</div>
+                            </div>
+                        </div>
+                        <button class="bg-gray-400 text-white px-4 py-1 rounded text-xs font-bold">ERROR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SNAKE GAME WINDOW -->
+        <div id="win-snake" class="window w-[400px] h-[440px] rounded-t-lg border-gray-600">
+            <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-snake')">
+                <span class="text-xs font-bold text-gray-300">Snake.exe</span>
+                <button onclick="closeApp('snake')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <div class="flex-1 bg-[#8bac0f] flex flex-col items-center justify-center relative">
+                 <canvas id="snakeCanvas" width="300" height="300" class="border-4 border-[#0f380f] bg-[#9bbc0f]"></canvas>
+                 <div class="text-[#0f380f] font-mono font-bold mt-2">SCORE: <span id="snakeScore">0</span></div>
+                 <div class="text-[#0f380f] text-xs font-mono mt-1">WASD to Move</div>
+                 <button onclick="startSnake()" class="absolute inset-0 bg-black/50 text-white font-bold text-xl hover:bg-black/40 flex items-center justify-center cursor-pointer" id="snakeOverlay">
+                     CLICK TO START
+                 </button>
+            </div>
+        </div>
+
+        <!-- VM WINDOW (REALISTIC OS) -->
+        <div id="win-vm" class="window w-[640px] h-[480px] rounded-t-lg border-gray-600">
+            <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-vm')">
+                <span class="text-xs font-bold text-gray-300">VirtuBox - Ubuntu 20.77 (Guest OS)</span>
+                <button onclick="closeApp('vm')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <!-- Guest OS View -->
+            <div class="flex-1 bg-[#2c001e] relative overflow-hidden font-sans select-none">
+                <!-- Guest Wallpaper -->
+                <div class="absolute inset-0 opacity-50 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]"></div>
+                
+                <!-- Guest Icons -->
+                <div class="absolute top-2 left-2 flex flex-col gap-4">
+                    <div onclick="toggleVmTerminal()" class="flex flex-col items-center cursor-pointer hover:bg-white/10 p-1 rounded">
+                        <div class="w-10 h-10 bg-black border border-gray-500 flex items-center justify-center text-green-500 font-bold text-xs">>_</div>
+                        <div class="text-white text-[10px] mt-1">Terminal</div>
+                    </div>
+                    <div class="flex flex-col items-center cursor-pointer hover:bg-white/10 p-1 rounded opacity-50">
+                        <div class="w-10 h-10 bg-blue-400 rounded flex items-center justify-center text-white text-lg">📁</div>
+                        <div class="text-white text-[10px] mt-1">Files</div>
+                    </div>
+                </div>
+
+                <!-- Guest Terminal Window -->
+                <div id="vm-terminal" class="absolute top-10 left-20 right-10 bottom-20 bg-black border border-gray-600 shadow-2xl hidden flex-col font-mono text-xs">
+                    <div class="bg-gray-700 text-white px-2 py-1 flex justify-between items-center cursor-grab">
+                        <span>root@remote-server:~</span>
+                        <button onclick="toggleVmTerminal()" class="text-red-300 hover:text-red-500">x</button>
+                    </div>
+                    <div class="flex-1 p-2 text-green-400 overflow-y-auto" id="vm-term-log">
+                        root@remote-server:~$ _<br>
+                    </div>
+                    <div class="p-2 border-t border-gray-800 flex gap-2">
+                         <span class="text-green-500">$</span>
+                         <input id="vm-input" class="bg-transparent border-none outline-none text-white flex-1" placeholder="./start_miner.sh" onkeydown="handleVmCmd(event)">
+                    </div>
+                </div>
+
+                <!-- Guest Taskbar -->
+                <div class="absolute bottom-0 left-0 right-0 h-8 bg-[#1a0510] flex items-center px-2 gap-2">
+                    <div class="w-4 h-4 bg-orange-500 rounded-full"></div>
+                    <div class="text-white text-[10px] opacity-50">192.168.0.1 - Connected</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STAFF WINDOW -->
+        <div id="win-staff" class="window w-[600px] h-[450px] rounded-t-lg border-gray-600">
+             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-staff')">
+                <span class="text-xs font-bold text-gray-300">HR Manager</span>
+                <button onclick="closeApp('staff')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+            </div>
+            <div class="flex-1 bg-slate-200 flex flex-col">
+                <div class="bg-slate-800 text-white p-3">
+                    <h2 class="font-bold">Recruitment Portal</h2>
+                    <p class="text-xs text-gray-400">Hire professionals to increase passive income.</p>
+                </div>
+                <div id="staff-list" class="p-4 space-y-2 overflow-y-auto">
+                    <!-- Injected via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Taskbar -->
+        <div class="absolute bottom-0 left-0 right-0 h-10 bg-gray-900/90 backdrop-blur border-t border-gray-700 flex items-center px-2 z-50 justify-between">
+             <div class="flex items-center gap-2">
+                 <button onclick="toggleStart()" class="w-8 h-8 bg-blue-600 hover:bg-blue-500 rounded flex items-center justify-center text-white font-bold shadow cursor-pointer">❖</button>
+                 <div id="taskbar-apps" class="flex gap-1 ml-2"></div>
+             </div>
+             <div class="flex items-center gap-4 text-xs font-mono text-gray-300 pr-2">
+                 <div class="text-green-400 font-bold"><span id="topBarBalance">0</span> ₿</div>
+                 <div id="clock">12:00 PM</div>
+             </div>
+        </div>
+        
+        <!-- Start Menu -->
+        <div id="startMenu" class="absolute bottom-12 left-2 w-48 bg-gray-800 border border-gray-600 rounded shadow-xl hidden flex-col p-1 z-50">
+            <div class="px-2 py-2 border-b border-gray-700 mb-1 text-xs text-gray-400">System</div>
+            <button onclick="exitComputer()" class="w-full text-left px-2 py-2 hover:bg-red-900/50 text-red-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+                <span>⏻</span> Shut Down (Exit)
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- STATE ---
+        const state = {
+            roomIndex: 1,
+            bits: 100,
+            clickPower: 1,
+            autoPerSec: 0,
+            health: 100,
+            hunger: 100,
+            thirst: 100,
+            btc: 0,
+            btcPrice: 100,
+            priceHistory: Array(50).fill(100),
+            furniture: { poster: false, server: false, rug: false, plant: false, neon: false },
+            upgrades: [
+                { name: 'Mouse OC', cost: 20, power: 1, isClick: true, count: 0 },
+                { name: 'Script', cost: 50, power: 2, isClick: false, count: 0 },
+                { name: 'GPU Farm', cost: 250, power: 8, isClick: false, count: 0 },
+                { name: 'Botnet', cost: 1000, power: 25, isClick: false, count: 0 },
+                { name: 'AI Manager', cost: 5000, power: 100, isClick: false, count: 0 },
+                { name: 'Neural Net', cost: 20000, power: 500, isClick: false, count: 0 },
+                { name: 'Quantum CPU', cost: 100000, power: 2500, isClick: true, count: 0 }
+            ],
+            decor: [
+                { id: 'poster', name: 'Neon Poster', cost: 500, icon: '🖼️' },
+                { id: 'rug', name: 'Red Rug', cost: 800, icon: '🏮' },
+                { id: 'plant', name: 'Bio-Plant', cost: 1200, icon: '🌱' },
+                { id: 'server', name: 'Server Rack', cost: 2000, icon: '🗄️' },
+                { id: 'neon', name: 'Neon Strip', cost: 3500, icon: '💡' }
+            ],
+            staff: [
+                { id: 'intern', name: 'Script Kiddie', cost: 1000, gain: 10, count: 0, icon: '🧒' },
+                { id: 'dev', name: 'Junior Dev', cost: 5000, gain: 60, count: 0, icon: '👨‍💻' },
+                { id: 'hacker', name: 'BlackHat Hacker', cost: 15000, gain: 200, count: 0, icon: '🕵️' },
+                { id: 'sysadmin', name: 'SysAdmin', cost: 50000, gain: 800, count: 0, icon: '🧙‍♂️' }
+            ],
+            vmActive: false
+        };
+
+        // --- INIT ---
+        const els = {
+            world: document.getElementById('worldContainer'),
+            navLeft: document.getElementById('btnLeft'),
+            navRight: document.getElementById('btnRight'),
+            hud: document.getElementById('survivalHUD'),
+            fridge: document.getElementById('fridgeUI'),
+            death: document.getElementById('deathScreen')
+        };
+
+        function init() {
+            updateRoomView();
+            renderMiner();
+            renderShop();
+            renderStaff();
+            requestAnimationFrame(renderChart);
+            startMatrix();
+            updateClock();
+            
+            setInterval(gameLoop, 100);
+            setInterval(survivalLoop, 2000); 
+            setInterval(marketTick, 1000);
+            setInterval(updateClock, 60000);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        // --- NAVIGATION ---
+        function moveRoom(dir) {
+            state.roomIndex += dir;
+            if(state.roomIndex < 0) state.roomIndex = 0;
+            if(state.roomIndex > 3) state.roomIndex = 3;
+            updateRoomView();
+        }
+
+        function updateRoomView() {
+            const offset = -state.roomIndex * 100;
+            els.world.style.transform = `translateX(${offset}vw)`;
+
+            // Left Nav Logic
+            if (state.roomIndex === 0) { // Kitchen
+                els.navLeft.style.opacity = '0';
+                els.navLeft.style.pointerEvents = 'none';
+            } else {
+                els.navLeft.style.opacity = '1';
+                els.navLeft.style.pointerEvents = 'auto';
+            }
+            
+            // Right Nav Logic - FIXED: HIDE IN LIVING ROOM (Index 2) & STREET (Index 3)
+            if (state.roomIndex >= 2) { 
+                els.navRight.style.opacity = '0';
+                els.navRight.style.pointerEvents = 'none';
+            } else {
+                els.navRight.style.opacity = '1';
+                els.navRight.style.pointerEvents = 'auto';
+            }
+        }
+
+        function openFridge() { if(state.roomIndex === 0) els.fridge.style.display = 'flex'; }
+        function closeFridge() { els.fridge.style.display = 'none'; }
+
+        function buyFood(type) {
+            const costs = { soda: 50, pizza: 150, energy: 300 };
+            const cost = costs[type];
+            if(state.bits >= cost) {
+                state.bits -= cost;
+                if(type === 'soda') state.thirst = Math.min(100, state.thirst + 30);
+                if(type === 'pizza') state.hunger = Math.min(100, state.hunger + 40);
+                if(type === 'energy') { state.hunger = 100; state.thirst = 100; }
+                spawnFloatText("TASTY!", "green");
+                updateUI();
+            } else {
+                spawnFloatText("NO MONEY", "red");
+            }
+        }
+
+        // --- SURVIVAL ---
+        function survivalLoop() {
+            if(state.health <= 0) return;
+            state.hunger -= 0.5; 
+            state.thirst -= 0.8;
+            if(state.hunger < 0) state.hunger = 0;
+            if(state.thirst < 0) state.thirst = 0;
+
+            if(state.hunger === 0 || state.thirst === 0) state.health -= 2;
+            else if(state.health < 100 && state.hunger > 50 && state.thirst > 50) state.health += 1;
+
+            if(state.health <= 0) { state.health = 0; die(); }
+            updateUI();
+        }
+
+        function die() { els.death.style.display = 'flex'; els.hud.style.opacity = '0'; }
+        function respawn() {
+            state.health = 50; state.hunger = 50; state.thirst = 50;
+            state.bits = Math.floor(state.bits / 2);
+            els.death.style.display = 'none'; els.hud.style.opacity = '1';
+            state.roomIndex = 1; updateRoomView(); exitComputer(); updateUI();
+        }
+
+        // --- COMPUTER WINDOWS ---
+        function enterComputer() {
+            document.getElementById('computerView').classList.remove('hidden');
+            document.getElementById('computerView').classList.add('flex');
+            els.hud.style.display = 'none';
+            els.navLeft.style.display = 'none';
+            els.navRight.style.display = 'none';
+        }
+
+        function exitComputer() {
+            document.getElementById('computerView').classList.add('hidden');
+            document.getElementById('computerView').classList.remove('flex');
+            document.getElementById('startMenu').classList.remove('flex');
+            document.getElementById('startMenu').classList.add('hidden');
+            els.hud.style.display = 'flex';
+            // Restore nav buttons visibility based on logic
+            updateRoomView();
+        }
+
+        function toggleStart() {
+            const menu = document.getElementById('startMenu');
+            if(menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden'); menu.classList.add('flex');
+            } else {
+                menu.classList.add('hidden'); menu.classList.remove('flex');
+            }
+        }
+
+        function openApp(id) {
+            const win = document.getElementById(`win-${id}`);
+            // Bring to front
+            document.querySelectorAll('.window').forEach(w => w.style.zIndex = 10);
+            win.style.zIndex = 30;
+            win.classList.add('active');
+
+            if(id === 'browser') goBrowser();
+            if(id === 'staff') renderStaff();
+        }
+
+        function closeApp(id) {
+            document.getElementById(`win-${id}`).classList.remove('active');
+            if(id === 'snake') stopSnake();
+        }
+
+        // --- APP STORE LOGIC ---
+        function installApp(appId) {
+            const btn = document.getElementById(`btn-install-${appId}`);
+            if(btn.disabled) return;
+            
+            btn.innerText = "INSTALLING...";
+            
+            setTimeout(() => {
+                btn.innerText = "INSTALLED";
+                btn.className = "bg-gray-400 text-white px-4 py-1 rounded text-xs font-bold cursor-default";
+                btn.disabled = true;
+                
+                // Add icon to desktop
+                const grid = document.getElementById('desktop-grid');
+                const icon = document.createElement('div');
+                icon.className = "desktop-icon text-white shadow-black drop-shadow-md animate-bounce";
+                icon.onclick = () => openApp(appId);
+                
+                let iconHtml = '';
+                if(appId === 'snake') iconHtml = `<div class="w-12 h-12 bg-green-600 rounded flex items-center justify-center text-2xl">🐍</div><div class="text-xs text-center bg-black/50 px-1 rounded">Snake.exe</div>`;
+                if(appId === 'vm') iconHtml = `<div class="w-12 h-12 bg-indigo-600 rounded flex items-center justify-center text-2xl">💻</div><div class="text-xs text-center bg-black/50 px-1 rounded">VirtuBox</div>`;
+                if(appId === 'staff') iconHtml = `<div class="w-12 h-12 bg-orange-600 rounded flex items-center justify-center text-2xl">👔</div><div class="text-xs text-center bg-black/50 px-1 rounded">HR Mgr</div>`;
+
+                icon.innerHTML = iconHtml;
+                grid.appendChild(icon);
+                setTimeout(() => icon.classList.remove('animate-bounce'), 1000);
+            }, 1500);
+        }
+
+        // --- VM (REALISTIC) LOGIC ---
+        function toggleVmTerminal() {
+            const term = document.getElementById('vm-terminal');
+            if(term.style.display === 'flex') {
+                term.style.display = 'none';
+            } else {
+                term.style.display = 'flex';
+                const log = document.getElementById('vm-term-log');
+                if(log.innerHTML.length < 30) { // first run
+                    log.innerHTML = `root@remote-server:~$ <span class='opacity-50'># System Ready. Run scripts.</span><br>`;
+                }
+                document.getElementById('vm-input').focus();
+            }
+        }
+
+        function handleVmCmd(e) {
+            if(e.key === 'Enter') {
+                const input = e.target.value.trim();
+                e.target.value = '';
+                const log = document.getElementById('vm-term-log');
+                log.innerHTML += `root@remote-server:~$ ${input}<br>`;
+                
+                if(input === './start_miner.sh') {
+                    if(!state.vmActive) {
+                        state.vmActive = true;
+                        log.innerHTML += `<span class='text-yellow-400'>[SUCCESS] Mining Deamon Started (PID: 1337)</span><br>Rate Doubled.<br>`;
+                    } else {
+                        log.innerHTML += `<span class='text-red-400'>[ERROR] Process already running.</span><br>`;
+                    }
+                } else if(input === 'help') {
+                    log.innerHTML += `Available scripts:<br> - ./start_miner.sh<br> - ./stop_miner.sh<br>`;
+                } else if(input === './stop_miner.sh') {
+                    state.vmActive = false;
+                    log.innerHTML += `[OK] Process killed.<br>`;
+                } else {
+                    log.innerHTML += `bash: ${input}: command not found<br>`;
+                }
+                log.scrollTop = log.scrollHeight;
+            }
+        }
+
+        // --- STAFF LOGIC ---
+        function renderStaff() {
+            const list = document.getElementById('staff-list');
+            list.innerHTML = '';
+            state.staff.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = "bg-white p-3 rounded shadow flex justify-between items-center";
+                div.innerHTML = `
+                    <div class="flex gap-3 items-center">
+                        <div class="text-3xl">${s.icon}</div>
+                        <div>
+                            <div class="font-bold text-slate-800">${s.name}</div>
+                            <div class="text-xs text-slate-500">+${s.gain}/sec | Count: ${s.count}</div>
+                        </div>
+                    </div>
+                    <button onclick="hireStaff(${i})" class="bg-green-600 text-white px-4 py-1 rounded font-bold text-sm hover:bg-green-500">
+                        Hire (${s.cost}₿)
+                    </button>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function hireStaff(index) {
+            const s = state.staff[index];
+            if(state.bits >= s.cost) {
+                state.bits -= s.cost;
+                s.count++;
+                state.autoPerSec += s.gain;
+                renderStaff();
+                updateUI();
+                spawnFloatText("HIRED!", "green");
+            } else {
+                spawnFloatText("TOO EXPENSIVE", "red");
+            }
+        }
+
+        // --- BROWSER LOGIC ---
+        function handleBrowser(e) {
+            if(e.key === 'Enter') goBrowser();
+        }
+
+        function goBrowser() {
+            const url = document.getElementById('browser-url').value;
+            const content = document.getElementById('browser-content');
+            
+            if(url.includes('welcome.dat')) {
+                content.innerHTML = `
+                    <div class="p-8 text-center">
+                        <h1 class="text-4xl font-bold text-blue-600 mb-4">Welcome to NetScape</h1>
+                        <p class="text-lg">The gateway to the CyberNet.</p>
+                        <div class="mt-8 flex flex-col gap-2 items-center">
+                            <a onclick="visit('http://news.net')" class="text-blue-500 underline cursor-pointer">Night City News</a>
+                            <a onclick="visit('http://casino.win')" class="text-blue-500 underline cursor-pointer">Lucky Casino</a>
+                            <a onclick="visit('http://dark.net')" class="text-purple-500 underline cursor-pointer">Dark.net Forum</a>
+                            <a onclick="visit('http://scam.com')" class="text-red-500 underline cursor-pointer">FREE RAM DOWNLOAD!!!</a>
+                        </div>
+                    </div>
+                `;
+            } else if(url.includes('scam.com')) {
+                 content.innerHTML = `
+                    <div class="p-8 text-center bg-yellow-100 h-full flex flex-col items-center justify-center">
+                        <h1 class="text-6xl font-bold text-red-600 mb-4 animate-bounce">DOWNLOAD RAM!!</h1>
+                        <p class="text-2xl font-bold mb-8">YOUR PC IS SLOW! FIX IT NOW!</p>
+                        <button onclick="alert('ERROR: VIRUS DETECTED. JUST KIDDING.');" class="bg-green-500 text-white text-4xl font-bold p-8 rounded shadow-xl hover:scale-110 transition">CLICK HERE</button>
+                    </div>
+                `;
+            } else if(url.includes('dark.net')) {
+                content.innerHTML = `
+                    <div class="p-8 bg-slate-900 text-gray-300 min-h-full font-mono">
+                        <h1 class="text-2xl text-green-500 border-b border-gray-700 mb-4">Dark.net > General</h1>
+                        <div class="space-y-4">
+                            <div class="border-l-2 border-gray-600 pl-2">
+                                <div class="text-green-400 text-xs">User: Neo_1999</div>
+                                <div>Anyone know how to bypass the Sector 7 firewall?</div>
+                            </div>
+                            <div class="border-l-2 border-gray-600 pl-2">
+                                <div class="text-purple-400 text-xs">User: CryptoKing</div>
+                                <div>BTC going to the moon next tick. Trust me.</div>
+                            </div>
+                            <div class="border-l-2 border-gray-600 pl-2">
+                                <div class="text-red-400 text-xs">User: Admin</div>
+                                <div>Stop posting about the VirtuBox exploit. It's patched.</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (url.includes('casino.win')) {
+                content.innerHTML = `
+                    <div class="p-8 text-center bg-green-50">
+                        <h1 class="text-4xl font-bold text-green-600 mb-4">🎰 LUCKY CRYPTO 🎰</h1>
+                        <div class="border-4 border-yellow-400 p-4 inline-block bg-black text-yellow-500 font-mono text-4xl mb-4" id="slots">7 7 7</div>
+                        <br>
+                        <button onclick="spinSlots()" class="bg-red-600 text-white px-6 py-2 rounded font-bold text-xl shadow-lg hover:bg-red-500 transition">SPIN (100 Bits)</button>
+                        <div id="casino-msg" class="mt-4 font-bold h-6"></div>
+                    </div>
+                `;
+            } else if (url.includes('news.net')) {
+                content.innerHTML = `
+                    <div class="p-8">
+                        <h1 class="text-3xl font-bold border-b-2 border-black mb-4">NIGHT CITY TODAY</h1>
+                        <article class="mb-6">
+                            <h2 class="text-xl font-bold text-red-600">Cyber-Psychosis on the rise?</h2>
+                            <p class="text-sm text-gray-600">Experts say spending too much time in VR simulations leads to...</p>
+                        </article>
+                        <article>
+                            <h2 class="text-xl font-bold text-blue-600">Bitcoin hits new ATH</h2>
+                            <p class="text-sm text-gray-600">Market analysts predict a surge in mining rig prices...</p>
+                        </article>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `<div class="p-8 text-center text-gray-400"><h1 class="text-6xl font-bold mb-4">404</h1><p>Page not found on server.</p></div>`;
+            }
+        }
+
+        function visit(url) {
+            document.getElementById('browser-url').value = url;
+            goBrowser();
+        }
+
+        function spinSlots() {
+            if(state.bits < 100) {
+                document.getElementById('casino-msg').innerText = "NOT ENOUGH FUNDS!";
+                document.getElementById('casino-msg').className = "mt-4 font-bold h-6 text-red-600";
+                return;
+            }
+            state.bits -= 100;
+            updateUI();
+            const slotEl = document.getElementById('slots');
+            let i = 0;
+            const interval = setInterval(() => {
+                slotEl.innerText = `${Math.floor(Math.random()*9)} ${Math.floor(Math.random()*9)} ${Math.floor(Math.random()*9)}`;
+                i++;
+                if(i > 10) {
+                    clearInterval(interval);
+                    const n1 = Math.floor(Math.random()*5);
+                    const n2 = Math.floor(Math.random()*5);
+                    const n3 = Math.floor(Math.random()*5);
+                    
+                    const win = (n1 === n2 && n2 === n3);
+                    
+                    slotEl.innerText = `${n1} ${n2} ${n3}`;
+                    
+                    if(win) {
+                        const prize = 1000;
+                        state.bits += prize;
+                        document.getElementById('casino-msg').innerText = `JACKPOT! +${prize} BITS`;
+                        document.getElementById('casino-msg').className = "mt-4 font-bold h-6 text-green-600";
+                    } else {
+                        document.getElementById('casino-msg').innerText = "YOU LOST";
+                        document.getElementById('casino-msg').className = "mt-4 font-bold h-6 text-black";
+                    }
+                    updateUI();
+                }
+            }, 50);
+        }
+
+        // --- SNAKE LOGIC ---
+        let snakeGame = { running: false, interval: null, snake: [], food: {}, dir: 'right', score: 0 };
+        
+        function startSnake() {
+            document.getElementById('snakeOverlay').style.display = 'none';
+            if(snakeGame.running) return;
+            snakeGame.running = true;
+            snakeGame.snake = [{x:10, y:10}];
+            snakeGame.food = {x:15, y:10};
+            snakeGame.dir = 'right';
+            snakeGame.score = 0;
+            document.getElementById('snakeScore').innerText = 0;
+            window.addEventListener('keydown', handleSnakeInput);
+            snakeGame.interval = setInterval(snakeLoop, 100);
+        }
+
+        function stopSnake() {
+            snakeGame.running = false;
+            clearInterval(snakeGame.interval);
+            window.removeEventListener('keydown', handleSnakeInput);
+            document.getElementById('snakeOverlay').style.display = 'flex';
+        }
+
+        function handleSnakeInput(e) {
+            const key = e.key.toLowerCase();
+            if(key === 'w' && snakeGame.dir !== 'down') snakeGame.dir = 'up';
+            if(key === 's' && snakeGame.dir !== 'up') snakeGame.dir = 'down';
+            if(key === 'a' && snakeGame.dir !== 'right') snakeGame.dir = 'left';
+            if(key === 'd' && snakeGame.dir !== 'left') snakeGame.dir = 'right';
+        }
+
+        function snakeLoop() {
+            const head = {...snakeGame.snake[0]};
+            if(snakeGame.dir === 'up') head.y--;
+            if(snakeGame.dir === 'down') head.y++;
+            if(snakeGame.dir === 'left') head.x--;
+            if(snakeGame.dir === 'right') head.x++;
+            
+            if(head.x < 0 || head.x >= 30 || head.y < 0 || head.y >= 30) return stopSnake();
+            if(snakeGame.snake.some(s => s.x === head.x && s.y === head.y)) return stopSnake();
+            
+            snakeGame.snake.unshift(head);
+            if(head.x === snakeGame.food.x && head.y === snakeGame.food.y) {
+                snakeGame.score += 10;
+                document.getElementById('snakeScore').innerText = snakeGame.score;
+                snakeGame.food = { x: Math.floor(Math.random() * 30), y: Math.floor(Math.random() * 30) };
+            } else {
+                snakeGame.snake.pop();
+            }
+            drawSnake();
+        }
+
+        function drawSnake() {
+            const c = document.getElementById('snakeCanvas');
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#9bbc0f';
+            ctx.fillRect(0,0,300,300);
+            ctx.fillStyle = '#0f380f';
+            snakeGame.snake.forEach(s => ctx.fillRect(s.x*10, s.y*10, 10, 10));
+            ctx.fillStyle = '#306230';
+            ctx.fillRect(snakeGame.food.x*10, snakeGame.food.y*10, 10, 10);
+        }
+        
+        // --- UTILS ---
+        let dragItem = null;
+        let offsetX = 0;
+        let offsetY = 0;
+        
+        function startDrag(e, id) {
+            dragItem = document.getElementById(id);
+            document.querySelectorAll('.window').forEach(w => w.style.zIndex = 10);
+            dragItem.style.zIndex = 30;
+            const rect = dragItem.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            
+            function move(e) {
+                if(!dragItem) return;
+                dragItem.style.left = (e.clientX - offsetX + rect.width/2) + 'px';
+                dragItem.style.top = (e.clientY - offsetY + rect.height/2) + 'px';
+                dragItem.style.transform = 'translate(-50%, -50%)'; 
+            }
+            function stop() {
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', stop);
+                dragItem = null;
+            }
+            document.addEventListener('pointermove', move);
+            document.addEventListener('pointerup', stop);
+        }
+
+        function handleCmd(e) {
+            if(e.key === 'Enter') {
+                const input = e.target;
+                const val = input.value.trim().toLowerCase();
+                const out = document.getElementById('cmd-output');
+                
+                out.innerHTML += `\nroot@pc:~$ ${input.value}`;
+                input.value = '';
+
+                if(val === 'help') out.innerHTML += `\nCommands: help, clear, hack, balance, ls, whoami, matrix, sudo`;
+                else if(val === 'clear') out.innerHTML = 'System cleared.';
+                else if(val === 'balance') out.innerHTML += `\nWallet: ${Math.floor(state.bits)} Bits`;
+                else if(val === 'ls') out.innerHTML += `\n miner.exe\n trade.exe\n system32\n passwords.txt`;
+                else if(val === 'whoami') out.innerHTML += `\nroot`;
+                else if(val === 'matrix') out.innerHTML += `\nWake up, Neo...\n[Background process started]`;
+                else if(val === 'sudo') out.innerHTML += `\nNice try.`;
+                else if(val === 'hack') {
+                    if(Math.random() > 0.5) {
+                        const gain = 100;
+                        state.bits += gain;
+                        out.innerHTML += `\n[SUCCESS] Hacked bank node. +${gain} Bits.`;
+                    } else {
+                        out.innerHTML += `\n[FAILED] Firewall detected intrusion.`;
+                    }
+                }
+                else out.innerHTML += `\nCommand not found.`;
+                
+                out.scrollTop = out.scrollHeight;
+            }
+        }
+
+        // --- GAME LOOP ---
+        function gameLoop() {
+            if(state.health > 0) {
+                let rate = state.autoPerSec;
+                if(state.vmActive) rate += (state.clickPower * 10); // VM boosts based on click power
+                state.bits += rate / 10;
+            }
+            updateUI();
+        }
+
+        document.getElementById('mainBtn').addEventListener('pointerdown', () => {
+            let power = state.clickPower;
+            if(state.vmActive) power *= 2; // VM boosts clicking too
+            state.bits += power;
+            
+            const btn = document.getElementById('mainBtn');
+            btn.style.transform = 'scale(0.95)';
+            setTimeout(() => btn.style.transform = '', 50);
+        });
+
+        function updateUI() {
+            const b = Math.floor(state.bits).toLocaleString();
+            document.getElementById('bitsDisplay').innerText = b;
+            document.getElementById('topBarBalance').innerText = b;
+            document.getElementById('room-balance').innerText = b;
+            document.getElementById('autoRate').innerText = state.autoPerSec;
+            
+            document.getElementById('bar-health').style.width = state.health + '%';
+            document.getElementById('bar-hunger').style.width = state.hunger + '%';
+            document.getElementById('bar-thirst').style.width = state.thirst + '%';
+            
+            state.upgrades.forEach((u, i) => {
+                const cost = Math.floor(u.cost * Math.pow(1.2, u.count));
+                const el = document.getElementById(`upg-cost-${i}`);
+                if(el) el.innerText = cost;
+                const elCount = document.getElementById(`upg-count-${i}`);
+                if(elCount) elCount.innerText = u.count;
+            });
+        }
+
+        function renderMiner() {
+            const list = document.getElementById('minerUpgrades');
+            list.innerHTML = '';
+            state.upgrades.forEach((u, i) => {
+                const div = document.createElement('div');
+                div.className = "bg-gray-900 p-2 rounded flex justify-between items-center border border-gray-600 cursor-pointer hover:bg-gray-800";
+                div.onclick = () => {
+                    const cost = Math.floor(u.cost * Math.pow(1.2, u.count));
+                    if(state.bits >= cost) {
+                        state.bits -= cost;
+                        u.count++;
+                        if(u.isClick) state.clickPower += u.power;
+                        else state.autoPerSec += u.power;
+                        updateUI();
+                    }
+                };
+                div.innerHTML = `
+                    <div class="text-xs font-bold text-blue-200">${u.name} <span class="text-gray-400 text-[10px]">(+${u.power})</span></div>
+                    <div class="text-right">
+                        <div class="text-xs text-yellow-400"><span id="upg-cost-${i}">${u.cost}</span></div>
+                        <div class="text--[10px] text-gray-500">Lvl <span id="upg-count-${i}">0</span></div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        function renderShop() {
+            const grid = document.getElementById('shopGrid');
+            grid.innerHTML = '';
+            state.decor.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-gray-800 p-3 rounded border border-purple-900 flex flex-col items-center text-center gap-2";
+                div.innerHTML = `
+                    <div class="text-3xl">${item.icon}</div>
+                    <div class="font-bold text-purple-300 text-sm">${item.name}</div>
+                    <button onclick="buyDecor('${item.id}', ${item.cost})" class="mt-1 w-full bg-purple-700 text-white py-1 rounded text-xs cursor-pointer hover:bg-purple-600">
+                        ${item.cost}
+                    </button>
+                `;
+                grid.appendChild(div);
+            });
+        }
+
+        function buyDecor(id, cost) {
+            if(state.bits >= cost && !state.furniture[id]) {
+                state.bits -= cost;
+                state.furniture[id] = true;
+                document.getElementById(`room-${id}`).style.opacity = '1';
+                spawnFloatText("INSTALLED", "purple");
+                updateUI();
+            }
+        }
+
+        function marketTick() {
+            let change = (Math.random() - 0.45) * 5;
+            state.btcPrice = Math.max(1, state.btcPrice + change);
+            state.priceHistory.push(state.btcPrice);
+            state.priceHistory.shift();
+            const el = document.getElementById('cryptoPrice');
+            if(el) el.innerText = state.btcPrice.toFixed(2);
+        }
+
+        function tradeCrypto(action) {
+            if(action === 'buy' && state.bits > 0) {
+                const spend = state.bits * 0.5;
+                state.bits -= spend;
+                state.btc += spend / state.btcPrice;
+            } else if(action === 'sell' && state.btc > 0) {
+                state.bits += state.btc * state.btcPrice;
+                state.btc = 0;
+            }
+            document.getElementById('cryptoWallet').innerText = state.btc.toFixed(4);
+            updateUI();
+        }
+
+        function renderChart() {
+            const c = document.getElementById('chartCanvas');
+            if(!c) return;
+            const ctx = c.getContext('2d');
+            const w = ctx.canvas.width = ctx.canvas.parentElement.offsetWidth;
+            const h = ctx.canvas.height = ctx.canvas.parentElement.offsetHeight;
+            ctx.clearRect(0,0,w,h);
+            const min = Math.min(...state.priceHistory);
+            const max = Math.max(...state.priceHistory);
+            ctx.beginPath();
+            ctx.strokeStyle = state.priceHistory.at(-1) >= state.priceHistory.at(-2) ? '#22c55e' : '#ef4444';
+            ctx.lineWidth = 2;
+            state.priceHistory.forEach((p, i) => {
+                const x = (i / 49) * w;
+                const y = h - ((p - min) / (max - min || 1)) * (h - 20) - 10;
+                i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+            });
+            ctx.stroke();
+            requestAnimationFrame(renderChart);
+        }
+
+        function spawnFloatText(text, color='white') {
+            const el = document.createElement('div');
+            el.innerText = text;
+            el.className = `fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold text-2xl text-${color}-500 pointer-events-none animate-bounce z-[100]`;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1000);
+        }
+
+        function startMatrix() {
+            const c = document.getElementById('matrixCanvas');
+            const ctx = c.getContext('2d');
+            let drops = [];
+            function resize() { c.width = c.offsetWidth; c.height = c.offsetHeight; drops = Array(Math.floor(c.width / 10)).fill(1); }
+            window.addEventListener('resize', resize); resize();
+            function draw() {
+                ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(0,0,c.width,c.height);
+                ctx.fillStyle = '#0F0';
+                drops.forEach((y, i) => {
+                    ctx.fillText(String.fromCharCode(0x30A0+Math.random()*96), i*10, y*10);
+                    if(y*10 > c.height && Math.random() > 0.98) drops[i] = 0;
+                    drops[i]++;
+                });
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        init();
+    </script>
+</body>
+</html>
