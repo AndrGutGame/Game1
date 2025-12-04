@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Life Simulator v5.5.5 (Fixed Market)</title>
+    <title>Cyber Life Simulator v5.5.7 (Bug Fixes)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -92,8 +92,8 @@
 <body class="h-screen w-screen text-white bg-black overflow-hidden">
 
     <!-- VERSION LABEL -->
-    <div class="absolute top-4 right-4 z-[60] bg-black/80 border border-green-800 px-3 py-1 text-xs text-green-500 font-mono select-none pointer-events-none">
-        VER: <span id="versionLabel">5.5.5</span>
+    <div class="absolute top-1 right-1 z-[60] bg-black/40 border border-green-900/50 px-2 py-0.5 text-[10px] text-green-600/50 font-mono select-none pointer-events-none">
+        VER: <span id="versionLabel">5.5.7</span>
     </div>
 
     <!-- DEVICE SELECTION SCREEN -->
@@ -114,7 +114,7 @@
                 <span class="text-[10px] opacity-60 font-sans font-normal">Touchscreen</span>
             </button>
         </div>
-        <p class="mt-12 text-xs text-gray-600 font-mono">v5.5.5 - Fixed Market Logic</p>
+        <p class="mt-12 text-xs text-gray-600 font-mono">v5.5.7 - Fixed Nav & Gestures</p>
     </div>
 
     <!-- ROTATE OVERLAY -->
@@ -634,7 +634,7 @@
 
     <script>
         // --- CONSTANTS ---
-        const GAME_VERSION = "5.5.5"; // Updated version
+        const GAME_VERSION = "5.5.7"; // Updated version
 
         // --- STATE ---
         const state = {
@@ -708,8 +708,8 @@
         function initGame() {
             loadGame(); 
             updateRoomView();
-            renderMiner(); // This function was missing
-            renderShop(); // This function was missing
+            renderMiner();
+            renderShop();
             renderStaff();
             requestAnimationFrame(renderChart);
             startMatrix();
@@ -722,9 +722,31 @@
             setInterval(saveGame, 15000); 
             
             window.addEventListener('beforeunload', () => saveGame());
+            
+            // Add Swipe Listeners
+            let touchStartX = 0;
+            let touchEndX = 0;
+            
+            const world = document.getElementById('worldContainer');
+            
+            world.addEventListener('touchstart', e => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, {passive: true});
+            
+            world.addEventListener('touchend', e => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, {passive: true});
+            
+            function handleSwipe() {
+                if (document.getElementById('computerView').classList.contains('flex')) return; // Disable swipe in computer
+                
+                if (touchEndX < touchStartX - 50) moveRoom(1);
+                if (touchEndX > touchStartX + 50) moveRoom(-1);
+            }
         }
 
-        // --- CORE GAME LOOP & UI UPDATES (RESTORED) ---
+        // --- CORE GAME LOOP & UI UPDATES ---
         function gameLoop() {
             if(state.health > 0) {
                 let rate = state.autoPerSec;
@@ -957,7 +979,12 @@
             document.getElementById('computerView').classList.remove('flex');
             document.getElementById('startMenu').classList.remove('flex');
             document.getElementById('startMenu').classList.add('hidden');
+            
+            // FIX: Restore HUD and Nav buttons visibility
             els.hud.style.display = 'flex';
+            els.navLeft.style.display = '';
+            els.navRight.style.display = '';
+            
             updateRoomView();
         }
 
