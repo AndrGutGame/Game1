@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Life Simulator v5.1</title>
+    <title>Cyber Life Simulator v5.3 (Client Save)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; touch-action: manipulation; user-select: none; font-family: 'Courier New', monospace; }
@@ -117,8 +117,8 @@
                 <div id="room-neon" class="absolute top-10 right-1/4 w-64 h-2 bg-cyan-400 shadow-[0_0_20px_cyan] opacity-0 transition-opacity duration-500 z-0"></div>
 
                 <div id="room-plant" class="absolute bottom-32 right-10 w-24 h-40 flex flex-col items-center opacity-0 transition-opacity duration-500 z-20">
-                     <div class="w-16 h-16 bg-green-700 rounded-full blur-sm"></div>
-                     <div class="w-20 h-24 bg-orange-800 border-t-4 border-orange-700"></div>
+                      <div class="w-16 h-16 bg-green-700 rounded-full blur-sm"></div>
+                      <div class="w-20 h-24 bg-orange-800 border-t-4 border-orange-700"></div>
                 </div>
 
                 <div id="room-server" class="absolute top-32 right-10 w-40 h-96 bg-gray-900 border border-gray-700 shadow-xl flex flex-col gap-2 p-2 opacity-0 transition-opacity duration-500 z-0">
@@ -575,7 +575,14 @@
         <!-- Start Menu -->
         <div id="startMenu" class="absolute bottom-12 left-2 w-48 bg-gray-800 border border-gray-600 rounded shadow-xl hidden flex-col p-1 z-50">
             <div class="px-2 py-2 border-b border-gray-700 mb-1 text-xs text-gray-400">System</div>
-            <button onclick="exitComputer()" class="w-full text-left px-2 py-2 hover:bg-red-900/50 text-red-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+            <button onclick="saveGame()" class="w-full text-left px-2 py-2 hover:bg-blue-900/50 text-blue-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+                <span>💾</span> Save Game
+            </button>
+            <button onclick="resetData()" class="w-full text-left px-2 py-2 hover:bg-red-900/50 text-red-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+                <span>🗑️</span> Reset Data
+            </button>
+            <div class="h-px bg-gray-700 my-1"></div>
+            <button onclick="exitComputer()" class="w-full text-left px-2 py-2 hover:bg-gray-700 text-gray-300 rounded text-sm flex items-center gap-2 cursor-pointer">
                 <span>⏻</span> Shut Down (Exit)
             </button>
         </div>
@@ -632,6 +639,7 @@
         };
 
         function init() {
+            loadGame(); // Load save data first
             updateRoomView();
             renderMiner();
             renderShop();
@@ -644,6 +652,108 @@
             setInterval(survivalLoop, 2000); 
             setInterval(marketTick, 1000);
             setInterval(updateClock, 60000);
+            setInterval(saveGame, 15000); // Auto save every 15s
+            
+            // Save on close/refresh
+            window.addEventListener('beforeunload', () => saveGame());
+        }
+
+        // --- SAVE SYSTEM ---
+        function saveGame() {
+            const saveData = {
+                bits: state.bits,
+                health: state.health,
+                hunger: state.hunger,
+                thirst: state.thirst,
+                btc: state.btc,
+                furniture: state.furniture,
+                // Only save counts to avoid overwriting logic updates
+                upgradeCounts: state.upgrades.map(u => u.count),
+                staffCounts: state.staff.map(s => s.count)
+            };
+            try {
+                localStorage.setItem('cyberLifeSave_v5', JSON.stringify(saveData));
+                const btn = document.querySelector('#startMenu button span');
+                if(btn && document.getElementById('startMenu').classList.contains('flex')) {
+                    spawnFloatText("GAME SAVED", "blue");
+                }
+            } catch(e) {
+                console.log("Save failed (likely sandboxed env)");
+            }
+        }
+
+        function loadGame() {
+            const save = localStorage.getItem('cyberLifeSave_v5');
+            if (!save) return;
+
+            try {
+                const data = JSON.parse(save);
+                // Fix: Check for undefined instead of using || (which fails on 0)
+                state.bits = data.bits !== undefined ? data.bits : 100;
+                state.health = data.health !== undefined ? data.health : 100;
+                state.hunger = data.hunger !== undefined ? data.hunger : 100;
+                state.thirst = data.thirst !== undefined ? data.thirst : 100;
+                state.btc = data.btc !== undefined ? data.btc : 0;
+                
+                if(data.furniture) state.furniture = data.furniture;
+
+                // Restore Upgrades
+                if (data.upgradeCounts) {
+                    state.upgrades.forEach((u, i) => {
+                        if (data.upgradeCounts[i] !== undefined) u.count = data.upgradeCounts[i];
+                    });
+                }
+
+                // Restore Staff
+                if (data.staffCounts) {
+                    state.staff.forEach((s, i) => {
+                        if (data.staffCounts[i] !== undefined) s.count = data.staffCounts[i];
+                    });
+                }
+
+                // Recalculate stats based on counts
+                recalculateStats();
+
+                // Restore Visuals
+                Object.keys(state.furniture).forEach(key => {
+                    if(state.furniture[key]) {
+                        const el = document.getElementById(`room-${key}`);
+                        if(el) el.style.opacity = '1';
+                    }
+                });
+
+                spawnFloatText("DATA LOADED", "green");
+
+            } catch (e) {
+                console.error("Save file corrupted", e);
+            }
+        }
+
+        function recalculateStats() {
+            state.clickPower = 1;
+            state.autoPerSec = 0;
+
+            // Upgrades
+            state.upgrades.forEach(u => {
+                if(u.count > 0) {
+                    if(u.isClick) state.clickPower += (u.power * u.count);
+                    else state.autoPerSec += (u.power * u.count);
+                }
+            });
+
+            // Staff
+            state.staff.forEach(s => {
+                if(s.count > 0) state.autoPerSec += (s.gain * s.count);
+            });
+            
+            updateUI();
+        }
+
+        function resetData() {
+            if(confirm("Are you sure? This will wipe all progress.")) {
+                localStorage.removeItem('cyberLifeSave_v5');
+                location.reload();
+            }
         }
 
         function updateClock() {
@@ -695,6 +805,7 @@
                 if(type === 'energy') { state.hunger = 100; state.thirst = 100; }
                 spawnFloatText("TASTY!", "green");
                 updateUI();
+                saveGame(); // Save on spend
             } else {
                 spawnFloatText("NO MONEY", "red");
             }
@@ -716,9 +827,11 @@
         }
 
         function die() { els.death.style.display = 'flex'; els.hud.style.opacity = '0'; }
+        
         function respawn() {
             state.health = 50; state.hunger = 50; state.thirst = 50;
             state.bits = Math.floor(state.bits / 2);
+            saveGame(); // Save penalty immediately
             els.death.style.display = 'none'; els.hud.style.opacity = '1';
             state.roomIndex = 1; updateRoomView(); exitComputer(); updateUI();
         }
@@ -738,7 +851,6 @@
             document.getElementById('startMenu').classList.remove('flex');
             document.getElementById('startMenu').classList.add('hidden');
             els.hud.style.display = 'flex';
-            // Restore nav buttons visibility based on logic
             updateRoomView();
         }
 
@@ -869,6 +981,7 @@
                 renderStaff();
                 updateUI();
                 spawnFloatText("HIRED!", "green");
+                saveGame(); // Save on hire
             } else {
                 spawnFloatText("TOO EXPENSIVE", "red");
             }
@@ -991,6 +1104,7 @@
                         document.getElementById('casino-msg').className = "mt-4 font-bold h-6 text-black";
                     }
                     updateUI();
+                    saveGame(); // Save on gamble result
                 }
             }, 50);
         }
@@ -1110,6 +1224,7 @@
                     } else {
                         out.innerHTML += `\n[FAILED] Firewall detected intrusion.`;
                     }
+                    saveGame(); // Save on hack attempt
                 }
                 else out.innerHTML += `\nCommand not found.`;
                 
@@ -1171,6 +1286,7 @@
                         if(u.isClick) state.clickPower += u.power;
                         else state.autoPerSec += u.power;
                         updateUI();
+                        saveGame(); // Save on upgrade
                     }
                 };
                 div.innerHTML = `
@@ -1208,6 +1324,7 @@
                 document.getElementById(`room-${id}`).style.opacity = '1';
                 spawnFloatText("INSTALLED", "purple");
                 updateUI();
+                saveGame(); // Save on decor
             }
         }
 
@@ -1231,6 +1348,7 @@
             }
             document.getElementById('cryptoWallet').innerText = state.btc.toFixed(4);
             updateUI();
+            saveGame(); // Save on trade
         }
 
         function renderChart() {
