@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Life Simulator v5.4 (Hash Save)</title>
+    <title>Cyber Life Simulator v5.5.5 (Fixed Market)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; touch-action: manipulation; user-select: none; font-family: 'Courier New', monospace; }
+        body { margin: 0; overflow: hidden; background-color: #000; touch-action: none; user-select: none; font-family: 'Courier New', monospace; -webkit-tap-highlight-color: transparent; }
         
         /* CRT Effects */
         .scanline::after {
@@ -54,25 +55,73 @@
             animation: popIn 0.1s ease-out;
         }
         .window.active { display: flex; z-index: 30; }
+        
+        /* Mobile Window Overrides */
+        body.mobile-mode .window {
+            width: 95% !important;
+            height: 90% !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            border-radius: 8px;
+        }
+        body.mobile-mode .window .title-bar {
+            padding: 12px; /* Bigger touch target */
+        }
+
         .title-bar {
             background: linear-gradient(90deg, #0f172a, #1e293b);
             padding: 4px 8px; display: flex; justify-content: space-between; items-center;
             border-bottom: 1px solid #334155; cursor: grab;
         }
         .desktop-icon {
-            width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+            width: 72px; display: flex; flex-direction: column; align-items: center; gap: 4px;
             cursor: pointer; padding: 8px; border: 1px solid transparent; border-radius: 4px;
         }
         .desktop-icon:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
         
         @keyframes popIn { from { transform: translate(-50%, -50%) scale(0.9); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+
+        /* Rotate Overlay for Mobile Portrait */
+        #rotateOverlay { display: none; }
+        @media (orientation: portrait) {
+            body.mobile-mode #rotateOverlay { display: flex; }
+        }
     </style>
 </head>
 <body class="h-screen w-screen text-white bg-black overflow-hidden">
 
-    <!-- VERSION LABEL (Added per request) -->
+    <!-- VERSION LABEL -->
     <div class="absolute top-4 right-4 z-[60] bg-black/80 border border-green-800 px-3 py-1 text-xs text-green-500 font-mono select-none pointer-events-none">
-        VER: <span id="versionLabel">5.4.0</span>
+        VER: <span id="versionLabel">5.5.5</span>
+    </div>
+
+    <!-- DEVICE SELECTION SCREEN -->
+    <div id="deviceModal" class="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center font-mono">
+        <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop')] bg-cover opacity-20 pointer-events-none"></div>
+        <h1 class="text-4xl md:text-6xl text-green-500 mb-4 glitch-hover font-bold text-center tracking-widest relative z-10">CYBER LIFE</h1>
+        <p class="text-gray-400 mb-12 text-sm relative z-10 tracking-[0.3em]">SYSTEM INITIALIZATION</p>
+        
+        <div class="flex gap-6 flex-col md:flex-row relative z-10">
+            <button onclick="selectDevice('pc')" class="w-64 py-6 border-2 border-blue-600 bg-blue-900/10 text-blue-400 hover:bg-blue-600 hover:text-black transition-all font-bold text-xl rounded flex flex-col items-center gap-2 group cursor-pointer">
+                <i class="fas fa-desktop text-4xl group-hover:scale-110 transition"></i>
+                <span>DESKTOP</span>
+                <span class="text-[10px] opacity-60 font-sans font-normal">Mouse & Keyboard</span>
+            </button>
+            <button onclick="selectDevice('mobile')" class="w-64 py-6 border-2 border-purple-600 bg-purple-900/10 text-purple-400 hover:bg-purple-600 hover:text-black transition-all font-bold text-xl rounded flex flex-col items-center gap-2 group cursor-pointer">
+                <i class="fas fa-mobile-alt text-4xl group-hover:scale-110 transition"></i>
+                <span>MOBILE</span>
+                <span class="text-[10px] opacity-60 font-sans font-normal">Touchscreen</span>
+            </button>
+        </div>
+        <p class="mt-12 text-xs text-gray-600 font-mono">v5.5.5 - Fixed Market Logic</p>
+    </div>
+
+    <!-- ROTATE OVERLAY -->
+    <div id="rotateOverlay" class="fixed inset-0 bg-black z-[90] flex flex-col items-center justify-center text-center p-8 hidden">
+        <i class="fas fa-sync-alt text-6xl text-yellow-500 mb-4 animate-spin-slow"></i>
+        <h2 class="text-2xl font-bold text-white mb-2">ROTATE DEVICE</h2>
+        <p class="text-gray-400">This system requires horizontal landscape mode for optimal cyber-hacking.</p>
     </div>
 
     <!-- === GAME WORLD === -->
@@ -84,13 +133,13 @@
             <div class="absolute bottom-0 h-[30%] w-full bg-[#2a2a2c] border-t border-gray-700"></div>
 
             <!-- Fridge -->
-            <div onclick="openFridge()" class="absolute bottom-20 left-1/3 w-40 h-80 bg-gray-300 border-4 border-gray-400 rounded shadow-lg cursor-pointer hover:brightness-110 transition group z-20 flex flex-col items-center">
+            <div onclick="openFridge()" class="absolute bottom-20 left-1/3 w-32 md:w-40 h-64 md:h-80 bg-gray-300 border-4 border-gray-400 rounded shadow-lg cursor-pointer hover:brightness-110 transition group z-20 flex flex-col items-center">
                 <div class="w-full h-[40%] border-b-4 border-gray-400 relative bg-gray-200">
                     <div class="absolute top-4 right-4 w-2 h-8 bg-gray-400 rounded"></div>
                 </div>
                 <div class="relative h-[60%] w-full bg-gray-200">
                     <div class="absolute top-4 right-4 w-2 h-12 bg-gray-400 rounded"></div>
-                    <div class="absolute top-10 left-1/2 -translate-x-1/2 text-[8px] text-gray-400 font-mono">FOOD STATION</div>
+                    <div class="absolute top-10 left-1/2 -translate-x-1/2 text-[8px] text-gray-400 font-mono">FOOD</div>
                 </div>
                 <div class="absolute inset-0 bg-blue-400/0 group-hover:bg-blue-400/10 transition duration-300 pointer-events-none"></div>
             </div>
@@ -107,52 +156,45 @@
             <!-- Container -->
             <div class="relative w-[800px] h-[600px] max-w-full max-h-full pointer-events-none">
                 
-                <!-- Trash / Mess -->
-                <div class="absolute bottom-10 left-20 w-12 h-8 bg-orange-900/50 border border-orange-800 rotate-12 opacity-80 z-10"></div>
-                <div class="absolute bottom-12 left-32 w-8 h-8 bg-slate-700/50 border border-slate-600 -rotate-12 opacity-60 z-10 rounded-full"></div>
-                <div class="absolute bottom-24 right-40 w-10 h-10 bg-gray-700 rounded-full border border-gray-600 opacity-60 z-10"></div>
-
                 <!-- Furniture Slots -->
-                <div id="room-rug" class="absolute bottom-10 left-1/2 -translate-x-1/2 w-96 h-32 bg-red-900/30 border-4 border-red-900/50 rounded-full opacity-0 transition-opacity duration-500 z-0 blur-sm"></div>
+                <div id="room-rug" class="absolute bottom-10 left-1/2 -translate-x-1/2 w-64 md:w-96 h-20 md:h-32 bg-red-900/30 border-4 border-red-900/50 rounded-full opacity-0 transition-opacity duration-500 z-0 blur-sm"></div>
                 
-                <div id="room-poster" class="absolute top-20 left-1/4 w-32 h-48 bg-black border-2 border-pink-500 shadow-[0_0_20px_#ec4899] opacity-0 transition-opacity duration-500 z-0">
+                <div id="room-poster" class="absolute top-20 left-1/4 w-24 md:w-32 h-32 md:h-48 bg-black border-2 border-pink-500 shadow-[0_0_20px_#ec4899] opacity-0 transition-opacity duration-500 z-0">
                     <div class="w-full h-full flex items-center justify-center text-pink-500 font-bold text-xs text-center">CYBER<br>PUNK</div>
                 </div>
 
-                <div id="room-neon" class="absolute top-10 right-1/4 w-64 h-2 bg-cyan-400 shadow-[0_0_20px_cyan] opacity-0 transition-opacity duration-500 z-0"></div>
+                <div id="room-neon" class="absolute top-10 right-1/4 w-40 md:w-64 h-2 bg-cyan-400 shadow-[0_0_20px_cyan] opacity-0 transition-opacity duration-500 z-0"></div>
 
-                <div id="room-plant" class="absolute bottom-32 right-10 w-24 h-40 flex flex-col items-center opacity-0 transition-opacity duration-500 z-20">
+                <div id="room-plant" class="absolute bottom-32 right-4 md:right-10 w-24 h-40 flex flex-col items-center opacity-0 transition-opacity duration-500 z-20">
                       <div class="w-16 h-16 bg-green-700 rounded-full blur-sm"></div>
                       <div class="w-20 h-24 bg-orange-800 border-t-4 border-orange-700"></div>
                 </div>
 
-                <div id="room-server" class="absolute top-32 right-10 w-40 h-96 bg-gray-900 border border-gray-700 shadow-xl flex flex-col gap-2 p-2 opacity-0 transition-opacity duration-500 z-0">
+                <div id="room-server" class="absolute top-32 right-4 md:right-10 w-32 md:w-40 h-64 md:h-96 bg-gray-900 border border-gray-700 shadow-xl flex flex-col gap-2 p-2 opacity-0 transition-opacity duration-500 z-0">
                     <div class="w-full h-2 bg-green-500 shadow-[0_0_5px_#22c55e] animate-pulse"></div>
                     <div class="w-full h-2 bg-green-500 shadow-[0_0_5px_#22c55e] animate-pulse delay-75"></div>
                     <div class="w-full h-2 bg-green-500 shadow-[0_0_5px_#22c55e] animate-pulse delay-150"></div>
                 </div>
 
                 <!-- Desk & PC -->
-                <div class="absolute bottom-32 left-1/2 -translate-x-1/2 w-[500px] h-16 bg-gray-700 border-b-8 border-gray-800 shadow-lg z-20 pointer-events-auto"></div>
-                <div class="absolute bottom-0 left-1/2 -translate-x-[200px] w-4 h-32 bg-gray-600 z-10"></div>
-                <div class="absolute bottom-0 left-1/2 translate-x-[200px] w-4 h-32 bg-gray-600 z-10"></div>
+                <div class="absolute bottom-32 left-1/2 -translate-x-1/2 w-[300px] md:w-[500px] h-12 md:h-16 bg-gray-700 border-b-8 border-gray-800 shadow-lg z-20 pointer-events-auto"></div>
+                <div class="absolute bottom-0 left-1/2 -translate-x-[120px] md:-translate-x-[200px] w-4 h-32 bg-gray-600 z-10"></div>
+                <div class="absolute bottom-0 left-1/2 translate-x-[120px] md:translate-x-[200px] w-4 h-32 bg-gray-600 z-10"></div>
 
                 <!-- Character & Chair -->
                 <div class="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center pointer-events-none">
-                    <!-- Chair Back -->
-                    <div class="w-32 h-48 bg-black border-4 border-gray-700 rounded-t-xl absolute -top-24 z-0"></div>
-                    <!-- Body -->
+                    <div class="w-24 md:w-32 h-32 md:h-48 bg-black border-4 border-gray-700 rounded-t-xl absolute -top-16 md:-top-24 z-0"></div>
                     <div class="relative z-10 flex flex-col items-center float">
-                        <div class="w-28 h-16 bg-slate-800 rounded-t-2xl border-b border-black"></div> <!-- Shoulders -->
-                        <div class="w-16 h-16 bg-neutral-200 rounded-full shadow-lg border-2 border-neutral-300 -mt-10 relative"> <!-- Head -->
-                            <div class="absolute top-4 left-3 w-2 h-2 bg-black rounded-full animate-pulse"></div> <!-- Eye L -->
-                            <div class="absolute top-4 right-3 w-2 h-2 bg-black rounded-full animate-pulse"></div> <!-- Eye R -->
+                        <div class="w-20 md:w-28 h-12 md:h-16 bg-slate-800 rounded-t-2xl border-b border-black"></div> 
+                        <div class="w-12 md:w-16 h-12 md:h-16 bg-neutral-200 rounded-full shadow-lg border-2 border-neutral-300 -mt-8 md:-mt-10 relative"> 
+                            <div class="absolute top-4 left-3 w-2 h-2 bg-black rounded-full animate-pulse"></div> 
+                            <div class="absolute top-4 right-3 w-2 h-2 bg-black rounded-full animate-pulse"></div> 
                         </div>
                     </div>
                 </div>
 
                 <!-- Computer Monitor -->
-                <div onclick="enterComputer()" class="absolute bottom-48 left-1/2 -translate-x-1/2 w-64 h-40 bg-gray-800 rounded p-2 cursor-pointer z-30 hover:scale-105 transition-transform duration-200 group pointer-events-auto shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+                <div onclick="enterComputer()" class="absolute bottom-40 md:bottom-48 left-1/2 -translate-x-1/2 w-48 md:w-64 h-32 md:h-40 bg-gray-800 rounded p-2 cursor-pointer z-30 hover:scale-105 transition-transform duration-200 group pointer-events-auto shadow-[0_0_30px_rgba(59,130,246,0.3)]">
                     <div class="w-full h-full bg-black border border-blue-500/30 relative overflow-hidden flex items-center justify-center">
                         <div class="absolute inset-0 bg-blue-500/10 animate-pulse"></div>
                         <div class="text-[10px] text-blue-400 font-mono z-10 text-center pointer-events-none">
@@ -173,15 +215,15 @@
              <div class="absolute bottom-0 h-[25%] w-full bg-[#3a3a3c]"></div>
              
              <!-- Sofa -->
-             <div class="absolute bottom-20 w-96 h-32 bg-indigo-900 rounded-t-xl border-b-8 border-black shadow-2xl"></div>
+             <div class="absolute bottom-20 w-80 md:w-96 h-24 md:h-32 bg-indigo-900 rounded-t-xl border-b-8 border-black shadow-2xl"></div>
              
              <!-- TV -->
-             <div class="absolute bottom-20 right-10 w-64 h-48 bg-black border border-gray-800 flex items-center justify-center">
+             <div class="absolute bottom-20 right-4 md:right-10 w-48 md:w-64 h-32 md:h-48 bg-black border border-gray-800 flex items-center justify-center">
                  <div class="text-gray-700 font-mono text-xs animate-pulse">NO SIGNAL</div>
              </div>
             
             <!-- Door to Street -->
-            <div onclick="moveRoom(1)" class="absolute bottom-20 left-10 w-32 h-64 bg-[#1a1a1a] border-4 border-gray-800 cursor-pointer hover:brightness-125 transition group z-20 flex items-center justify-center overflow-hidden">
+            <div onclick="moveRoom(1)" class="absolute bottom-20 left-4 md:left-10 w-24 md:w-32 h-48 md:h-64 bg-[#1a1a1a] border-4 border-gray-800 cursor-pointer hover:brightness-125 transition group z-20 flex items-center justify-center overflow-hidden">
                  <div class="absolute inset-0 bg-red-900/20 group-hover:bg-red-900/40 transition"></div>
                  <div class="w-2 h-2 bg-red-500 rounded-full absolute top-1/2 right-2 shadow-[0_0_5px_red]"></div>
                  <div class="absolute top-10 text-gray-600 font-mono text-xs group-hover:text-white transition">STREET</div>
@@ -210,7 +252,7 @@
             <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQwIj48cmVjdCB3aWR0aD0iMSIgaGVpZ2h0PSIxMCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] animate-[scanline_0.5s_linear_infinite] opacity-30 pointer-events-none"></div>
             
             <div class="z-20 text-center mb-20">
-                <h1 class="text-6xl font-bold text-purple-500 glitch-hover mb-4">NIGHT CITY</h1>
+                <h1 class="text-4xl md:text-6xl font-bold text-purple-500 glitch-hover mb-4">NIGHT CITY</h1>
                 <div class="text-gray-400 font-mono text-sm bg-black/50 p-2 rounded border border-gray-800">SECTOR 7 [SAFE ZONE]</div>
                 <p class="text-xs text-gray-600 mt-4">More content coming in v6.0...</p>
             </div>
@@ -223,8 +265,9 @@
 
     <!-- === HUD & NAV === -->
     <div id="navUI" class="absolute inset-0 pointer-events-none z-40 flex items-center justify-between px-4">
-        <button onclick="moveRoom(-1)" id="btnLeft" class="pointer-events-auto bg-gray-800/50 hover:bg-gray-700 text-white w-12 h-24 flex items-center justify-center rounded text-2xl transition opacity-0 cursor-default">❮</button>
-        <button onclick="moveRoom(1)" id="btnRight" class="pointer-events-auto bg-gray-800/50 hover:bg-gray-700 text-white w-12 h-24 flex items-center justify-center rounded text-2xl transition cursor-pointer">❯</button>
+        <!-- Enlarged nav buttons for Mobile -->
+        <button onclick="moveRoom(-1)" id="btnLeft" class="pointer-events-auto bg-gray-800/50 hover:bg-gray-700 text-white w-12 md:w-16 h-24 md:h-32 flex items-center justify-center rounded text-2xl md:text-4xl transition opacity-0 cursor-default">❮</button>
+        <button onclick="moveRoom(1)" id="btnRight" class="pointer-events-auto bg-gray-800/50 hover:bg-gray-700 text-white w-12 md:w-16 h-24 md:h-32 flex items-center justify-center rounded text-2xl md:text-4xl transition cursor-pointer">❯</button>
     </div>
 
     <div id="survivalHUD" class="absolute top-4 left-4 bg-black/80 p-3 rounded border border-gray-700 flex flex-col gap-2 z-50 transition-opacity duration-500 select-none">
@@ -258,20 +301,20 @@
         </div>
     </div>
 
-    <!-- === SAVE MODAL (ADDED) === -->
+    <!-- === SAVE MODAL === -->
     <div id="saveModal" class="fixed inset-0 bg-black/90 z-[70] hidden items-center justify-center backdrop-blur-sm">
-        <div class="w-[500px] max-w-full bg-slate-900 border border-green-500 p-6 rounded shadow-[0_0_50px_rgba(34,197,94,0.2)]">
+        <div class="w-[500px] max-w-full bg-slate-900 border border-green-500 p-6 rounded shadow-[0_0_50px_rgba(34,197,94,0.2)] m-4">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold text-green-400 font-mono" id="modalTitle">DATA EXPORT</h2>
-                <button onclick="closeSaveModal()" class="text-gray-400 hover:text-white">✕</button>
+                <button onclick="closeSaveModal()" class="text-gray-400 hover:text-white text-xl p-2">✕</button>
             </div>
             <p class="text-xs text-gray-400 mb-2 font-mono" id="modalDesc">Copy this code to save your progress on another device.</p>
             <textarea id="saveInput" class="w-full h-32 bg-black border border-gray-700 text-green-500 p-2 text-xs font-mono resize-none focus:border-green-500 outline-none mb-4 rounded"></textarea>
             <div class="flex gap-2">
-                <button id="modalActionBtn" onclick="copySave()" class="flex-1 bg-green-900/50 hover:bg-green-800 border border-green-700 text-green-100 py-2 rounded font-mono text-sm transition cursor-pointer">
+                <button id="modalActionBtn" onclick="copySave()" class="flex-1 bg-green-900/50 hover:bg-green-800 border border-green-700 text-green-100 py-3 rounded font-mono text-sm transition cursor-pointer">
                     COPY TO CLIPBOARD
                 </button>
-                <button onclick="closeSaveModal()" class="px-4 py-2 border border-gray-600 text-gray-400 hover:text-white rounded font-mono text-sm cursor-pointer">
+                <button onclick="closeSaveModal()" class="px-4 py-3 border border-gray-600 text-gray-400 hover:text-white rounded font-mono text-sm cursor-pointer">
                     CLOSE
                 </button>
             </div>
@@ -280,8 +323,8 @@
 
     <!-- === FRIDGE UI === -->
     <div id="fridgeUI" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center">
-        <div class="bg-gray-800 border-2 border-gray-500 p-6 w-96 max-w-full rounded shadow-2xl relative">
-            <button onclick="closeFridge()" class="absolute top-2 right-2 text-gray-400 hover:text-white text-xl cursor-pointer">✕</button>
+        <div class="bg-gray-800 border-2 border-gray-500 p-6 w-96 max-w-full rounded shadow-2xl relative m-4">
+            <button onclick="closeFridge()" class="absolute top-2 right-2 text-gray-400 hover:text-white text-2xl p-2 cursor-pointer">✕</button>
             <h2 class="text-2xl font-bold text-blue-300 mb-4 flex items-center gap-2">❄️ FOOD STORAGE</h2>
             <div class="space-y-2">
                 <div onclick="buyFood('soda')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
@@ -336,9 +379,9 @@
         <div id="win-miner" class="window w-[800px] h-[500px] max-w-full max-h-full rounded-t-lg border-gray-600">
             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-miner')">
                 <span class="text-xs font-bold text-gray-300">C:\Users\Hacker\Miner.exe</span>
-                <button onclick="closeApp('miner')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <button onclick="closeApp('miner')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
-            <div class="flex-1 bg-black/90 p-4 flex gap-4 overflow-hidden">
+            <div class="flex-1 bg-black/90 p-4 flex gap-4 overflow-hidden flex-col md:flex-row">
                 <div class="flex-1 bg-black/50 border border-blue-900/30 rounded p-4 flex flex-col items-center justify-center relative overflow-hidden">
                     <canvas id="matrixCanvas" class="absolute inset-0 opacity-20 pointer-events-none"></canvas>
                     <div class="z-10 text-center mb-6">
@@ -350,7 +393,7 @@
                         <div class="text-6xl group-hover:text-blue-400 transition-colors pointer-events-none">💠</div>
                     </button>
                 </div>
-                <div class="w-64 bg-gray-800/80 border-l border-gray-700 flex flex-col overflow-hidden">
+                <div class="w-full md:w-64 bg-gray-800/80 border-l border-gray-700 flex flex-col overflow-hidden max-h-40 md:max-h-full">
                     <div class="p-3 bg-gray-900 font-bold text-blue-300 text-sm shrink-0">HARDWARE</div>
                     <div id="minerUpgrades" class="overflow-y-auto flex-1 p-2 space-y-2"></div>
                 </div>
@@ -361,7 +404,7 @@
         <div id="win-market" class="window w-[700px] h-[500px] rounded-t-lg border-gray-600">
             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-market')">
                 <span class="text-xs font-bold text-gray-300">CryptoExchange v2.0</span>
-                <button onclick="closeApp('market')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <button onclick="closeApp('market')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
             <div class="flex-1 bg-black flex flex-col">
                 <div class="flex-1 relative min-h-0 p-4">
@@ -377,8 +420,8 @@
                         <div class="text-xl font-bold text-yellow-400"><span id="cryptoWallet">0.0000</span> BTC</div>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="tradeCrypto('buy')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold text-sm cursor-pointer">BUY (50%)</button>
-                        <button onclick="tradeCrypto('sell')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded font-bold text-sm cursor-pointer">SELL ALL</button>
+                        <button onclick="tradeCrypto('buy')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold text-sm cursor-pointer">BUY</button>
+                        <button onclick="tradeCrypto('sell')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded font-bold text-sm cursor-pointer">SELL</button>
                     </div>
                 </div>
             </div>
@@ -388,7 +431,7 @@
         <div id="win-shop" class="window w-[600px] h-[500px] rounded-t-lg border-gray-600">
             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-shop')">
                 <span class="text-xs font-bold text-gray-300">Tor Browser - DarkMarket</span>
-                <button onclick="closeApp('shop')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <button onclick="closeApp('shop')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
             <div class="flex-1 bg-gray-900 flex flex-col overflow-hidden">
                  <div class="flex p-4 bg-purple-900/20 border-b border-purple-500/30 shrink-0 justify-between items-center">
@@ -397,7 +440,7 @@
                         <p class="text-xs text-purple-300">Anonymous Delivery. No Refunds.</p>
                     </div>
                     <div class="text-right">
-                        <div class="text-xs text-gray-400">Upgrade your room</div>
+                        <div class="text-xs text-gray-400">Upgrade room</div>
                     </div>
                 </div>
                 <div id="shopGrid" class="grid grid-cols-2 gap-4 p-4 overflow-y-auto"></div>
@@ -408,7 +451,7 @@
         <div id="win-cmd" class="window w-[600px] h-[400px] rounded-t-lg border-gray-600">
             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-cmd')">
                 <span class="text-xs font-bold text-gray-300">Admin Terminal</span>
-                <button onclick="closeApp('cmd')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <button onclick="closeApp('cmd')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
             <div class="flex-1 bg-black p-2 font-mono text-green-500 text-sm overflow-hidden flex flex-col">
                 <div id="cmd-output" class="flex-1 overflow-y-auto mb-2 whitespace-pre-wrap break-words">System initialized...<br>Type 'help' for commands.</div>
@@ -423,12 +466,12 @@
         <div id="win-browser" class="window w-[800px] h-[600px] rounded-t-lg border-gray-600">
             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-browser')">
                 <span class="text-xs font-bold text-gray-300">NetScape 2077</span>
-                <button onclick="closeApp('browser')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <button onclick="closeApp('browser')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
             <div class="h-10 bg-gray-200 flex items-center px-2 gap-2 border-b border-gray-400 shrink-0">
-                <button class="text-gray-500 hover:text-black">◀</button>
-                <button class="text-gray-500 hover:text-black">▶</button>
-                <button class="text-gray-500 hover:text-black">↻</button>
+                <button class="text-gray-500 hover:text-black text-xl">◀</button>
+                <button class="text-gray-500 hover:text-black text-xl">▶</button>
+                <button class="text-gray-500 hover:text-black text-xl">↻</button>
                 <input id="browser-url" type="text" class="flex-1 bg-white border border-gray-300 rounded px-2 text-sm text-black font-sans" value="http://welcome.dat" onkeydown="handleBrowser(event)">
                 <button onclick="goBrowser()" class="bg-blue-600 text-white px-3 rounded text-xs font-bold">GO</button>
             </div>
@@ -441,7 +484,7 @@
         <div id="win-store" class="window w-[600px] h-[450px] rounded-t-lg border-gray-600">
             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-store')">
                 <span class="text-xs font-bold text-gray-300">dStore - Apps & Games</span>
-                <button onclick="closeApp('store')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <button onclick="closeApp('store')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
             <div class="flex-1 bg-slate-100 text-slate-900 flex flex-col">
                 <div class="p-4 bg-gradient-to-r from-sky-500 to-blue-600 text-white shrink-0">
@@ -449,58 +492,36 @@
                     <p class="text-xs opacity-80">Download new software for your system.</p>
                 </div>
                 <div class="p-4 grid grid-cols-1 gap-2 overflow-y-auto">
-                    
-                    <!-- Snake -->
+                    <!-- App Items... -->
                     <div class="bg-white p-3 rounded shadow flex justify-between items-center">
                         <div class="flex gap-3 items-center">
                             <div class="w-10 h-10 bg-green-600 rounded flex items-center justify-center text-white text-lg">🐍</div>
                             <div>
                                 <div class="font-bold">Snake.exe</div>
-                                <div class="text-xs text-gray-500">Classic arcade game</div>
+                                <div class="text-xs text-gray-500">Classic arcade</div>
                             </div>
                         </div>
-                        <button onclick="installApp('snake')" id="btn-install-snake" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">
-                            GET
-                        </button>
+                        <button onclick="installApp('snake')" id="btn-install-snake" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">GET</button>
                     </div>
-
-                    <!-- VirtuBox -->
                     <div class="bg-white p-3 rounded shadow flex justify-between items-center">
                         <div class="flex gap-3 items-center">
                             <div class="w-10 h-10 bg-indigo-600 rounded flex items-center justify-center text-white text-lg">💻</div>
                             <div>
                                 <div class="font-bold">VirtuBox</div>
-                                <div class="text-xs text-gray-500">Remote OS Controller</div>
+                                <div class="text-xs text-gray-500">Remote OS</div>
                             </div>
                         </div>
-                        <button onclick="installApp('vm')" id="btn-install-vm" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">
-                            GET
-                        </button>
+                        <button onclick="installApp('vm')" id="btn-install-vm" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">GET</button>
                     </div>
-
-                    <!-- HR Manager -->
                     <div class="bg-white p-3 rounded shadow flex justify-between items-center">
                         <div class="flex gap-3 items-center">
                             <div class="w-10 h-10 bg-orange-600 rounded flex items-center justify-center text-white text-lg">👔</div>
                             <div>
-                                <div class="font-bold">HR Manager</div>
-                                <div class="text-xs text-gray-500">Hire staff to work for you</div>
+                                <div class="font-bold">HR Mgr</div>
+                                <div class="text-xs text-gray-500">Hire staff</div>
                             </div>
                         </div>
-                        <button onclick="installApp('staff')" id="btn-install-staff" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">
-                            GET
-                        </button>
-                    </div>
-                    
-                     <div class="bg-white p-3 rounded shadow flex justify-between items-center opacity-50 cursor-not-allowed">
-                        <div class="flex gap-3 items-center">
-                            <div class="w-10 h-10 bg-red-600 rounded flex items-center justify-center text-white text-lg">🔫</div>
-                            <div>
-                                <div class="font-bold">Doom.wad</div>
-                                <div class="text-xs text-gray-500">Not compatible with OS</div>
-                            </div>
-                        </div>
-                        <button class="bg-gray-400 text-white px-4 py-1 rounded text-xs font-bold">ERROR</button>
+                        <button onclick="installApp('staff')" id="btn-install-staff" class="bg-blue-600 text-white px-4 py-1 rounded text-xs font-bold hover:bg-blue-500 transition cursor-pointer">GET</button>
                     </div>
                 </div>
             </div>
@@ -510,14 +531,14 @@
         <div id="win-snake" class="window w-[400px] h-[440px] rounded-t-lg border-gray-600">
             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-snake')">
                 <span class="text-xs font-bold text-gray-300">Snake.exe</span>
-                <button onclick="closeApp('snake')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <button onclick="closeApp('snake')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
             <div class="flex-1 bg-[#8bac0f] flex flex-col items-center justify-center relative">
                  <canvas id="snakeCanvas" width="300" height="300" class="border-4 border-[#0f380f] bg-[#9bbc0f]"></canvas>
                  <div class="text-[#0f380f] font-mono font-bold mt-2">SCORE: <span id="snakeScore">0</span></div>
-                 <div class="text-[#0f380f] text-xs font-mono mt-1">WASD to Move</div>
+                 <div class="text-[#0f380f] text-xs font-mono mt-1">WASD / Touch</div>
                  <button onclick="startSnake()" class="absolute inset-0 bg-black/50 text-white font-bold text-xl hover:bg-black/40 flex items-center justify-center cursor-pointer" id="snakeOverlay">
-                     CLICK TO START
+                     CLICK/TAP TO START
                  </button>
             </div>
         </div>
@@ -525,34 +546,26 @@
         <!-- VM WINDOW (REALISTIC OS) -->
         <div id="win-vm" class="window w-[640px] h-[480px] rounded-t-lg border-gray-600">
             <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-vm')">
-                <span class="text-xs font-bold text-gray-300">VirtuBox - Ubuntu 20.77 (Guest OS)</span>
-                <button onclick="closeApp('vm')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <span class="text-xs font-bold text-gray-300">VirtuBox - Ubuntu</span>
+                <button onclick="closeApp('vm')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
-            <!-- Guest OS View -->
             <div class="flex-1 bg-[#2c001e] relative overflow-hidden font-sans select-none">
-                <!-- Guest Wallpaper -->
                 <div class="absolute inset-0 opacity-50 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyIiBjeT0iMiIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]"></div>
                 
-                <!-- Guest Icons -->
                 <div class="absolute top-2 left-2 flex flex-col gap-4">
-                    <div onclick="toggleVmTerminal()" class="flex flex-col items-center cursor-pointer hover:bg-white/10 p-1 rounded">
-                        <div class="w-10 h-10 bg-black border border-gray-500 flex items-center justify-center text-green-500 font-bold text-xs">>_</div>
-                        <div class="text-white text-[10px] mt-1">Terminal</div>
-                    </div>
-                    <div class="flex flex-col items-center cursor-pointer hover:bg-white/10 p-1 rounded opacity-50">
-                        <div class="w-10 h-10 bg-blue-400 rounded flex items-center justify-center text-white text-lg">📁</div>
-                        <div class="text-white text-[10px] mt-1">Files</div>
+                    <div onclick="toggleVmTerminal()" class="flex flex-col items-center cursor-pointer hover:bg-white/10 p-2 rounded">
+                        <div class="w-12 h-12 bg-black border border-gray-500 flex items-center justify-center text-green-500 font-bold text-sm">>_</div>
+                        <div class="text-white text-[10px] mt-1">Term</div>
                     </div>
                 </div>
 
-                <!-- Guest Terminal Window -->
-                <div id="vm-terminal" class="absolute top-10 left-20 right-10 bottom-20 bg-black border border-gray-600 shadow-2xl hidden flex-col font-mono text-xs">
-                    <div class="bg-gray-700 text-white px-2 py-1 flex justify-between items-center cursor-grab">
-                        <span>root@remote-server:~</span>
-                        <button onclick="toggleVmTerminal()" class="text-red-300 hover:text-red-500">x</button>
+                <div id="vm-terminal" class="absolute top-10 left-4 right-4 bottom-20 bg-black border border-gray-600 shadow-2xl hidden flex-col font-mono text-xs">
+                    <div class="bg-gray-700 text-white px-2 py-2 flex justify-between items-center cursor-grab">
+                        <span>root@server:~</span>
+                        <button onclick="toggleVmTerminal()" class="text-red-300 hover:text-red-500 text-lg px-2">x</button>
                     </div>
                     <div class="flex-1 p-2 text-green-400 overflow-y-auto" id="vm-term-log">
-                        root@remote-server:~$ _<br>
+                        root@server:~$ _<br>
                     </div>
                     <div class="p-2 border-t border-gray-800 flex gap-2">
                          <span class="text-green-500">$</span>
@@ -560,10 +573,9 @@
                     </div>
                 </div>
 
-                <!-- Guest Taskbar -->
                 <div class="absolute bottom-0 left-0 right-0 h-8 bg-[#1a0510] flex items-center px-2 gap-2">
                     <div class="w-4 h-4 bg-orange-500 rounded-full"></div>
-                    <div class="text-white text-[10px] opacity-50">192.168.0.1 - Connected</div>
+                    <div class="text-white text-[10px] opacity-50">Connected</div>
                 </div>
             </div>
         </div>
@@ -572,12 +584,12 @@
         <div id="win-staff" class="window w-[600px] h-[450px] rounded-t-lg border-gray-600">
              <div class="title-bar select-none" onpointerdown="startDrag(event, 'win-staff')">
                 <span class="text-xs font-bold text-gray-300">HR Manager</span>
-                <button onclick="closeApp('staff')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded">✕</button>
+                <button onclick="closeApp('staff')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
             <div class="flex-1 bg-slate-200 flex flex-col">
                 <div class="bg-slate-800 text-white p-3">
-                    <h2 class="font-bold">Recruitment Portal</h2>
-                    <p class="text-xs text-gray-400">Hire professionals to increase passive income.</p>
+                    <h2 class="font-bold">Recruitment</h2>
+                    <p class="text-xs text-gray-400">Increase passive income.</p>
                 </div>
                 <div id="staff-list" class="p-4 space-y-2 overflow-y-auto">
                     <!-- Injected via JS -->
@@ -586,39 +598,34 @@
         </div>
 
         <!-- Taskbar -->
-        <div class="absolute bottom-0 left-0 right-0 h-10 bg-gray-900/90 backdrop-blur border-t border-gray-700 flex items-center px-2 z-50 justify-between">
+        <div class="absolute bottom-0 left-0 right-0 h-10 md:h-12 bg-gray-900/90 backdrop-blur border-t border-gray-700 flex items-center px-2 z-50 justify-between">
              <div class="flex items-center gap-2">
-                 <button onclick="toggleStart()" class="w-8 h-8 bg-blue-600 hover:bg-blue-500 rounded flex items-center justify-center text-white font-bold shadow cursor-pointer">❖</button>
+                 <button onclick="toggleStart()" class="w-8 h-8 md:w-10 md:h-10 bg-blue-600 hover:bg-blue-500 rounded flex items-center justify-center text-white font-bold shadow cursor-pointer text-lg">❖</button>
                  <div id="taskbar-apps" class="flex gap-1 ml-2"></div>
              </div>
-             <div class="flex items-center gap-4 text-xs font-mono text-gray-300 pr-2">
+             <div class="flex items-center gap-4 text-xs md:text-sm font-mono text-gray-300 pr-2">
                  <div class="text-green-400 font-bold"><span id="topBarBalance">0</span> ₿</div>
                  <div id="clock">12:00 PM</div>
              </div>
         </div>
         
         <!-- Start Menu -->
-        <div id="startMenu" class="absolute bottom-12 left-2 w-56 bg-gray-800 border border-gray-600 rounded shadow-xl hidden flex-col p-1 z-50">
+        <div id="startMenu" class="absolute bottom-12 left-2 w-64 bg-gray-800 border border-gray-600 rounded shadow-xl hidden flex-col p-1 z-50">
             <div class="px-2 py-2 border-b border-gray-700 mb-1 text-xs text-gray-400">System Control</div>
-            
-            <button onclick="saveGame()" class="w-full text-left px-2 py-2 hover:bg-blue-900/50 text-blue-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+            <button onclick="saveGame()" class="w-full text-left px-4 py-3 hover:bg-blue-900/50 text-blue-300 rounded text-sm flex items-center gap-3 cursor-pointer">
                 <span>💾</span> Quick Save (Local)
             </button>
-            
-            <button onclick="openSaveModal('export')" class="w-full text-left px-2 py-2 hover:bg-green-900/50 text-green-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+            <button onclick="openSaveModal('export')" class="w-full text-left px-4 py-3 hover:bg-green-900/50 text-green-300 rounded text-sm flex items-center gap-3 cursor-pointer">
                 <span>📤</span> Export Data (Hash)
             </button>
-            
-            <button onclick="openSaveModal('import')" class="w-full text-left px-2 py-2 hover:bg-yellow-900/50 text-yellow-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+            <button onclick="openSaveModal('import')" class="w-full text-left px-4 py-3 hover:bg-yellow-900/50 text-yellow-300 rounded text-sm flex items-center gap-3 cursor-pointer">
                 <span>📥</span> Import Data (Hash)
             </button>
-
-            <button onclick="resetData()" class="w-full text-left px-2 py-2 hover:bg-red-900/50 text-red-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+            <button onclick="resetData()" class="w-full text-left px-4 py-3 hover:bg-red-900/50 text-red-300 rounded text-sm flex items-center gap-3 cursor-pointer">
                 <span>🗑️</span> Reset Data
             </button>
-
             <div class="h-px bg-gray-700 my-1"></div>
-            <button onclick="exitComputer()" class="w-full text-left px-2 py-2 hover:bg-gray-700 text-gray-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+            <button onclick="exitComputer()" class="w-full text-left px-4 py-3 hover:bg-gray-700 text-gray-300 rounded text-sm flex items-center gap-3 cursor-pointer">
                 <span>⏻</span> Shut Down (Exit)
             </button>
         </div>
@@ -627,7 +634,7 @@
 
     <script>
         // --- CONSTANTS ---
-        const GAME_VERSION = "5.4.0";
+        const GAME_VERSION = "5.5.5"; // Updated version
 
         // --- STATE ---
         const state = {
@@ -664,7 +671,8 @@
                 { id: 'hacker', name: 'BlackHat Hacker', cost: 15000, gain: 200, count: 0, icon: '🕵️' },
                 { id: 'sysadmin', name: 'SysAdmin', cost: 50000, gain: 800, count: 0, icon: '🧙‍♂️' }
             ],
-            vmActive: false
+            vmActive: false,
+            isMobile: false
         };
 
         // --- INIT ---
@@ -676,15 +684,32 @@
             fridge: document.getElementById('fridgeUI'),
             death: document.getElementById('deathScreen'),
             saveModal: document.getElementById('saveModal'),
-            saveInput: document.getElementById('saveInput')
+            saveInput: document.getElementById('saveInput'),
+            deviceModal: document.getElementById('deviceModal')
         };
+
+        function selectDevice(type) {
+            state.isMobile = (type === 'mobile');
+            if (state.isMobile) {
+                document.body.classList.add('mobile-mode');
+            }
+            els.deviceModal.style.opacity = '0';
+            setTimeout(() => {
+                els.deviceModal.style.display = 'none';
+            }, 500);
+            
+            initGame();
+        }
 
         function init() {
             document.getElementById('versionLabel').innerText = GAME_VERSION;
-            loadGame(); // Load save data first
+        }
+
+        function initGame() {
+            loadGame(); 
             updateRoomView();
-            renderMiner();
-            renderShop();
+            renderMiner(); // This function was missing
+            renderShop(); // This function was missing
             renderStaff();
             requestAnimationFrame(renderChart);
             startMatrix();
@@ -694,696 +719,20 @@
             setInterval(survivalLoop, 2000); 
             setInterval(marketTick, 1000);
             setInterval(updateClock, 60000);
-            setInterval(saveGame, 15000); // Auto save every 15s
+            setInterval(saveGame, 15000); 
             
-            // Save on close/refresh
             window.addEventListener('beforeunload', () => saveGame());
         }
 
-        // --- SAVE SYSTEM ---
-        function getSaveObject() {
-            return {
-                bits: state.bits,
-                health: state.health,
-                hunger: state.hunger,
-                thirst: state.thirst,
-                btc: state.btc,
-                furniture: state.furniture,
-                // Only save counts to avoid overwriting logic updates
-                upgradeCounts: state.upgrades.map(u => u.count),
-                staffCounts: state.staff.map(s => s.count),
-                version: GAME_VERSION
-            };
-        }
-
-        function saveGame() {
-            const saveData = getSaveObject();
-            try {
-                localStorage.setItem('cyberLifeSave_v5', JSON.stringify(saveData));
-                const btn = document.querySelector('#startMenu button span');
-                if(btn && document.getElementById('startMenu').classList.contains('flex')) {
-                    spawnFloatText("GAME SAVED", "blue");
-                }
-            } catch(e) {
-                console.log("Save failed (likely sandboxed env)");
-            }
-        }
-
-        function loadGame() {
-            const save = localStorage.getItem('cyberLifeSave_v5');
-            if (save) restoreFromJSON(save);
-        }
-
-        function restoreFromJSON(jsonString) {
-            try {
-                const data = JSON.parse(jsonString);
-                
-                state.bits = data.bits !== undefined ? data.bits : 100;
-                state.health = data.health !== undefined ? data.health : 100;
-                state.hunger = data.hunger !== undefined ? data.hunger : 100;
-                state.thirst = data.thirst !== undefined ? data.thirst : 100;
-                state.btc = data.btc !== undefined ? data.btc : 0;
-                
-                if(data.furniture) state.furniture = data.furniture;
-
-                // Restore Upgrades
-                if (data.upgradeCounts) {
-                    state.upgrades.forEach((u, i) => {
-                        if (data.upgradeCounts[i] !== undefined) u.count = data.upgradeCounts[i];
-                    });
-                }
-
-                // Restore Staff
-                if (data.staffCounts) {
-                    state.staff.forEach((s, i) => {
-                        if (data.staffCounts[i] !== undefined) s.count = data.staffCounts[i];
-                    });
-                }
-
-                // Recalculate stats based on counts
-                recalculateStats();
-
-                // Restore Visuals
-                Object.keys(state.furniture).forEach(key => {
-                    if(state.furniture[key]) {
-                        const el = document.getElementById(`room-${key}`);
-                        if(el) el.style.opacity = '1';
-                    }
-                });
-
-                spawnFloatText("DATA LOADED", "green");
-                updateUI();
-                renderMiner(); // Update costs visuals
-                renderStaff();
-            } catch (e) {
-                console.error("Save file corrupted", e);
-                spawnFloatText("LOAD ERROR", "red");
-            }
-        }
-
-        // --- HASH SYSTEM ---
-        // Helper to safe encode Unicode strings to Base64
-        function safeBtoa(str) {
-            return btoa(unescape(encodeURIComponent(str)));
-        }
-
-        // Helper to safe decode Base64 to Unicode strings
-        function safeAtob(str) {
-            return decodeURIComponent(escape(atob(str)));
-        }
-
-        function openSaveModal(mode) {
-            els.saveModal.classList.remove('hidden');
-            els.saveModal.classList.add('flex');
-            
-            const title = document.getElementById('modalTitle');
-            const desc = document.getElementById('modalDesc');
-            const btn = document.getElementById('modalActionBtn');
-            const input = els.saveInput;
-
-            if (mode === 'export') {
-                title.innerText = "DATA EXPORT (HASH)";
-                desc.innerText = "Copy this encrypted code to save progress.";
-                btn.innerText = "COPY TO CLIPBOARD";
-                btn.onclick = copySave;
-                input.readOnly = true;
-                
-                // Generate Hash
-                // FIX: Use safeBtoa to handle Russian characters (Unicode)
-                const json = JSON.stringify(getSaveObject());
-                const encoded = safeBtoa(json);
-                input.value = encoded;
-                
-            } else {
-                title.innerText = "DATA IMPORT (HASH)";
-                desc.innerText = "Paste your save code here to restore progress.";
-                btn.innerText = "LOAD DATA";
-                btn.onclick = loadFromHash;
-                input.readOnly = false;
-                input.value = "";
-                input.focus();
-            }
-        }
-
-        function closeSaveModal() {
-            els.saveModal.classList.add('hidden');
-            els.saveModal.classList.remove('flex');
-        }
-
-        function copySave() {
-            els.saveInput.select();
-            els.saveInput.setSelectionRange(0, 99999);
-            
-            // FIX: Use document.execCommand instead of navigator.clipboard for iframe support
-            try {
-                const successful = document.execCommand('copy');
-                if(successful) {
-                    spawnFloatText("COPIED!", "green");
-                } else {
-                    spawnFloatText("COPY FAILED", "red");
-                }
-            } catch (err) {
-                console.error('Fallback copy failed', err);
-                spawnFloatText("MANUAL COPY", "yellow");
-            }
-        }
-
-        function loadFromHash() {
-            const hash = els.saveInput.value.trim();
-            if (!hash) return;
-            try {
-                // Decode Hash
-                // FIX: Use safeAtob to handle Unicode characters
-                const json = safeAtob(hash);
-                restoreFromJSON(json);
-                closeSaveModal();
-            } catch (e) {
-                alert("Invalid Hash Code!");
-            }
-        }
-
-        function recalculateStats() {
-            state.clickPower = 1;
-            state.autoPerSec = 0;
-
-            // Upgrades
-            state.upgrades.forEach(u => {
-                if(u.count > 0) {
-                    if(u.isClick) state.clickPower += (u.power * u.count);
-                    else state.autoPerSec += (u.power * u.count);
-                }
-            });
-
-            // Staff
-            state.staff.forEach(s => {
-                if(s.count > 0) state.autoPerSec += (s.gain * s.count);
-            });
-            
-            updateUI();
-        }
-
-        function resetData() {
-            if(confirm("Are you sure? This will wipe all progress.")) {
-                localStorage.removeItem('cyberLifeSave_v5');
-                location.reload();
-            }
-        }
-
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        }
-
-        // --- NAVIGATION ---
-        function moveRoom(dir) {
-            state.roomIndex += dir;
-            if(state.roomIndex < 0) state.roomIndex = 0;
-            if(state.roomIndex > 3) state.roomIndex = 3;
-            updateRoomView();
-        }
-
-        function updateRoomView() {
-            const offset = -state.roomIndex * 100;
-            els.world.style.transform = `translateX(${offset}vw)`;
-
-            // Left Nav Logic
-            if (state.roomIndex === 0) { // Kitchen
-                els.navLeft.style.opacity = '0';
-                els.navLeft.style.pointerEvents = 'none';
-            } else {
-                els.navLeft.style.opacity = '1';
-                els.navLeft.style.pointerEvents = 'auto';
-            }
-            
-            // Right Nav Logic - FIXED: HIDE IN LIVING ROOM (Index 2) & STREET (Index 3)
-            if (state.roomIndex >= 2) { 
-                els.navRight.style.opacity = '0';
-                els.navRight.style.pointerEvents = 'none';
-            } else {
-                els.navRight.style.opacity = '1';
-                els.navRight.style.pointerEvents = 'auto';
-            }
-        }
-
-        function openFridge() { if(state.roomIndex === 0) els.fridge.style.display = 'flex'; }
-        function closeFridge() { els.fridge.style.display = 'none'; }
-
-        function buyFood(type) {
-            const costs = { soda: 50, pizza: 150, energy: 300 };
-            const cost = costs[type];
-            if(state.bits >= cost) {
-                state.bits -= cost;
-                if(type === 'soda') state.thirst = Math.min(100, state.thirst + 30);
-                if(type === 'pizza') state.hunger = Math.min(100, state.hunger + 40);
-                if(type === 'energy') { state.hunger = 100; state.thirst = 100; }
-                spawnFloatText("TASTY!", "green");
-                updateUI();
-                saveGame(); // Save on spend
-            } else {
-                spawnFloatText("NO MONEY", "red");
-            }
-        }
-
-        // --- SURVIVAL ---
-        function survivalLoop() {
-            if(state.health <= 0) return;
-            state.hunger -= 0.5; 
-            state.thirst -= 0.8;
-            if(state.hunger < 0) state.hunger = 0;
-            if(state.thirst < 0) state.thirst = 0;
-
-            if(state.hunger === 0 || state.thirst === 0) state.health -= 2;
-            else if(state.health < 100 && state.hunger > 50 && state.thirst > 50) state.health += 1;
-
-            if(state.health <= 0) { state.health = 0; die(); }
-            updateUI();
-        }
-
-        function die() { els.death.style.display = 'flex'; els.hud.style.opacity = '0'; }
-        
-        function respawn() {
-            state.health = 50; state.hunger = 50; state.thirst = 50;
-            state.bits = Math.floor(state.bits / 2);
-            saveGame(); // Save penalty immediately
-            els.death.style.display = 'none'; els.hud.style.opacity = '1';
-            state.roomIndex = 1; updateRoomView(); exitComputer(); updateUI();
-        }
-
-        // --- COMPUTER WINDOWS ---
-        function enterComputer() {
-            document.getElementById('computerView').classList.remove('hidden');
-            document.getElementById('computerView').classList.add('flex');
-            els.hud.style.display = 'none';
-            els.navLeft.style.display = 'none';
-            els.navRight.style.display = 'none';
-        }
-
-        function exitComputer() {
-            document.getElementById('computerView').classList.add('hidden');
-            document.getElementById('computerView').classList.remove('flex');
-            document.getElementById('startMenu').classList.remove('flex');
-            document.getElementById('startMenu').classList.add('hidden');
-            els.hud.style.display = 'flex';
-            updateRoomView();
-        }
-
-        function toggleStart() {
-            const menu = document.getElementById('startMenu');
-            if(menu.classList.contains('hidden')) {
-                menu.classList.remove('hidden'); menu.classList.add('flex');
-            } else {
-                menu.classList.add('hidden'); menu.classList.remove('flex');
-            }
-        }
-
-        function openApp(id) {
-            const win = document.getElementById(`win-${id}`);
-            // Bring to front
-            document.querySelectorAll('.window').forEach(w => w.style.zIndex = 10);
-            win.style.zIndex = 30;
-            win.classList.add('active');
-
-            if(id === 'browser') goBrowser();
-            if(id === 'staff') renderStaff();
-        }
-
-        function closeApp(id) {
-            document.getElementById(`win-${id}`).classList.remove('active');
-            if(id === 'snake') stopSnake();
-        }
-
-        // --- APP STORE LOGIC ---
-        function installApp(appId) {
-            const btn = document.getElementById(`btn-install-${appId}`);
-            if(btn.disabled) return;
-            
-            btn.innerText = "INSTALLING...";
-            
-            setTimeout(() => {
-                btn.innerText = "INSTALLED";
-                btn.className = "bg-gray-400 text-white px-4 py-1 rounded text-xs font-bold cursor-default";
-                btn.disabled = true;
-                
-                // Add icon to desktop
-                const grid = document.getElementById('desktop-grid');
-                const icon = document.createElement('div');
-                icon.className = "desktop-icon text-white shadow-black drop-shadow-md animate-bounce";
-                icon.onclick = () => openApp(appId);
-                
-                let iconHtml = '';
-                if(appId === 'snake') iconHtml = `<div class="w-12 h-12 bg-green-600 rounded flex items-center justify-center text-2xl">🐍</div><div class="text-xs text-center bg-black/50 px-1 rounded">Snake.exe</div>`;
-                if(appId === 'vm') iconHtml = `<div class="w-12 h-12 bg-indigo-600 rounded flex items-center justify-center text-2xl">💻</div><div class="text-xs text-center bg-black/50 px-1 rounded">VirtuBox</div>`;
-                if(appId === 'staff') iconHtml = `<div class="w-12 h-12 bg-orange-600 rounded flex items-center justify-center text-2xl">👔</div><div class="text-xs text-center bg-black/50 px-1 rounded">HR Mgr</div>`;
-
-                icon.innerHTML = iconHtml;
-                grid.appendChild(icon);
-                setTimeout(() => icon.classList.remove('animate-bounce'), 1000);
-            }, 1500);
-        }
-
-        // --- VM (REALISTIC) LOGIC ---
-        function toggleVmTerminal() {
-            const term = document.getElementById('vm-terminal');
-            if(term.style.display === 'flex') {
-                term.style.display = 'none';
-            } else {
-                term.style.display = 'flex';
-                const log = document.getElementById('vm-term-log');
-                if(log.innerHTML.length < 30) { // first run
-                    log.innerHTML = `root@remote-server:~$ <span class='opacity-50'># System Ready. Run scripts.</span><br>`;
-                }
-                document.getElementById('vm-input').focus();
-            }
-        }
-
-        function handleVmCmd(e) {
-            if(e.key === 'Enter') {
-                const input = e.target.value.trim();
-                e.target.value = '';
-                const log = document.getElementById('vm-term-log');
-                log.innerHTML += `root@remote-server:~$ ${input}<br>`;
-                
-                if(input === './start_miner.sh') {
-                    if(!state.vmActive) {
-                        state.vmActive = true;
-                        log.innerHTML += `<span class='text-yellow-400'>[SUCCESS] Mining Deamon Started (PID: 1337)</span><br>Rate Doubled.<br>`;
-                    } else {
-                        log.innerHTML += `<span class='text-red-400'>[ERROR] Process already running.</span><br>`;
-                    }
-                } else if(input === 'help') {
-                    log.innerHTML += `Available scripts:<br> - ./start_miner.sh<br> - ./stop_miner.sh<br>`;
-                } else if(input === './stop_miner.sh') {
-                    state.vmActive = false;
-                    log.innerHTML += `[OK] Process killed.<br>`;
-                } else {
-                    log.innerHTML += `bash: ${input}: command not found<br>`;
-                }
-                log.scrollTop = log.scrollHeight;
-            }
-        }
-
-        // --- STAFF LOGIC ---
-        function renderStaff() {
-            const list = document.getElementById('staff-list');
-            list.innerHTML = '';
-            state.staff.forEach((s, i) => {
-                const div = document.createElement('div');
-                div.className = "bg-white p-3 rounded shadow flex justify-between items-center";
-                div.innerHTML = `
-                    <div class="flex gap-3 items-center">
-                        <div class="text-3xl">${s.icon}</div>
-                        <div>
-                            <div class="font-bold text-slate-800">${s.name}</div>
-                            <div class="text-xs text-slate-500">+${s.gain}/sec | Count: ${s.count}</div>
-                        </div>
-                    </div>
-                    <button onclick="hireStaff(${i})" class="bg-green-600 text-white px-4 py-1 rounded font-bold text-sm hover:bg-green-500">
-                        Hire (${s.cost}₿)
-                    </button>
-                `;
-                list.appendChild(div);
-            });
-        }
-
-        function hireStaff(index) {
-            const s = state.staff[index];
-            if(state.bits >= s.cost) {
-                state.bits -= s.cost;
-                s.count++;
-                state.autoPerSec += s.gain;
-                renderStaff();
-                updateUI();
-                spawnFloatText("HIRED!", "green");
-                saveGame(); // Save on hire
-            } else {
-                spawnFloatText("TOO EXPENSIVE", "red");
-            }
-        }
-
-        // --- BROWSER LOGIC ---
-        function handleBrowser(e) {
-            if(e.key === 'Enter') goBrowser();
-        }
-
-        function goBrowser() {
-            const url = document.getElementById('browser-url').value;
-            const content = document.getElementById('browser-content');
-            
-            if(url.includes('welcome.dat')) {
-                content.innerHTML = `
-                    <div class="p-8 text-center">
-                        <h1 class="text-4xl font-bold text-blue-600 mb-4">Welcome to NetScape</h1>
-                        <p class="text-lg">The gateway to the CyberNet.</p>
-                        <div class="mt-8 flex flex-col gap-2 items-center">
-                            <a onclick="visit('http://news.net')" class="text-blue-500 underline cursor-pointer">Night City News</a>
-                            <a onclick="visit('http://casino.win')" class="text-blue-500 underline cursor-pointer">Lucky Casino</a>
-                            <a onclick="visit('http://dark.net')" class="text-purple-500 underline cursor-pointer">Dark.net Forum</a>
-                            <a onclick="visit('http://scam.com')" class="text-red-500 underline cursor-pointer">FREE RAM DOWNLOAD!!!</a>
-                        </div>
-                    </div>
-                `;
-            } else if(url.includes('scam.com')) {
-                 content.innerHTML = `
-                    <div class="p-8 text-center bg-yellow-100 h-full flex flex-col items-center justify-center">
-                        <h1 class="text-6xl font-bold text-red-600 mb-4 animate-bounce">DOWNLOAD RAM!!</h1>
-                        <p class="text-2xl font-bold mb-8">YOUR PC IS SLOW! FIX IT NOW!</p>
-                        <button onclick="alert('ERROR: VIRUS DETECTED. JUST KIDDING.');" class="bg-green-500 text-white text-4xl font-bold p-8 rounded shadow-xl hover:scale-110 transition">CLICK HERE</button>
-                    </div>
-                `;
-            } else if(url.includes('dark.net')) {
-                content.innerHTML = `
-                    <div class="p-8 bg-slate-900 text-gray-300 min-h-full font-mono">
-                        <h1 class="text-2xl text-green-500 border-b border-gray-700 mb-4">Dark.net > General</h1>
-                        <div class="space-y-4">
-                            <div class="border-l-2 border-gray-600 pl-2">
-                                <div class="text-green-400 text-xs">User: Neo_1999</div>
-                                <div>Anyone know how to bypass the Sector 7 firewall?</div>
-                            </div>
-                            <div class="border-l-2 border-gray-600 pl-2">
-                                <div class="text-purple-400 text-xs">User: CryptoKing</div>
-                                <div>BTC going to the moon next tick. Trust me.</div>
-                            </div>
-                            <div class="border-l-2 border-gray-600 pl-2">
-                                <div class="text-red-400 text-xs">User: Admin</div>
-                                <div>Stop posting about the VirtuBox exploit. It's patched.</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else if (url.includes('casino.win')) {
-                content.innerHTML = `
-                    <div class="p-8 text-center bg-green-50">
-                        <h1 class="text-4xl font-bold text-green-600 mb-4">🎰 LUCKY CRYPTO 🎰</h1>
-                        <div class="border-4 border-yellow-400 p-4 inline-block bg-black text-yellow-500 font-mono text-4xl mb-4" id="slots">7 7 7</div>
-                        <br>
-                        <button onclick="spinSlots()" class="bg-red-600 text-white px-6 py-2 rounded font-bold text-xl shadow-lg hover:bg-red-500 transition">SPIN (100 Bits)</button>
-                        <div id="casino-msg" class="mt-4 font-bold h-6"></div>
-                    </div>
-                `;
-            } else if (url.includes('news.net')) {
-                content.innerHTML = `
-                    <div class="p-8">
-                        <h1 class="text-3xl font-bold border-b-2 border-black mb-4">NIGHT CITY TODAY</h1>
-                        <article class="mb-6">
-                            <h2 class="text-xl font-bold text-red-600">Cyber-Psychosis on the rise?</h2>
-                            <p class="text-sm text-gray-600">Experts say spending too much time in VR simulations leads to...</p>
-                        </article>
-                        <article>
-                            <h2 class="text-xl font-bold text-blue-600">Bitcoin hits new ATH</h2>
-                            <p class="text-sm text-gray-600">Market analysts predict a surge in mining rig prices...</p>
-                        </article>
-                    </div>
-                `;
-            } else {
-                content.innerHTML = `<div class="p-8 text-center text-gray-400"><h1 class="text-6xl font-bold mb-4">404</h1><p>Page not found on server.</p></div>`;
-            }
-        }
-
-        function visit(url) {
-            document.getElementById('browser-url').value = url;
-            goBrowser();
-        }
-
-        function spinSlots() {
-            if(state.bits < 100) {
-                document.getElementById('casino-msg').innerText = "NOT ENOUGH FUNDS!";
-                document.getElementById('casino-msg').className = "mt-4 font-bold h-6 text-red-600";
-                return;
-            }
-            state.bits -= 100;
-            updateUI();
-            const slotEl = document.getElementById('slots');
-            let i = 0;
-            const interval = setInterval(() => {
-                slotEl.innerText = `${Math.floor(Math.random()*9)} ${Math.floor(Math.random()*9)} ${Math.floor(Math.random()*9)}`;
-                i++;
-                if(i > 10) {
-                    clearInterval(interval);
-                    const n1 = Math.floor(Math.random()*5);
-                    const n2 = Math.floor(Math.random()*5);
-                    const n3 = Math.floor(Math.random()*5);
-                    
-                    const win = (n1 === n2 && n2 === n3);
-                    
-                    slotEl.innerText = `${n1} ${n2} ${n3}`;
-                    
-                    if(win) {
-                        const prize = 1000;
-                        state.bits += prize;
-                        document.getElementById('casino-msg').innerText = `JACKPOT! +${prize} BITS`;
-                        document.getElementById('casino-msg').className = "mt-4 font-bold h-6 text-green-600";
-                    } else {
-                        document.getElementById('casino-msg').innerText = "YOU LOST";
-                        document.getElementById('casino-msg').className = "mt-4 font-bold h-6 text-black";
-                    }
-                    updateUI();
-                    saveGame(); // Save on gamble result
-                }
-            }, 50);
-        }
-
-        // --- SNAKE LOGIC ---
-        let snakeGame = { running: false, interval: null, snake: [], food: {}, dir: 'right', score: 0 };
-        
-        function startSnake() {
-            document.getElementById('snakeOverlay').style.display = 'none';
-            if(snakeGame.running) return;
-            snakeGame.running = true;
-            snakeGame.snake = [{x:10, y:10}];
-            snakeGame.food = {x:15, y:10};
-            snakeGame.dir = 'right';
-            snakeGame.score = 0;
-            document.getElementById('snakeScore').innerText = 0;
-            window.addEventListener('keydown', handleSnakeInput);
-            snakeGame.interval = setInterval(snakeLoop, 100);
-        }
-
-        function stopSnake() {
-            snakeGame.running = false;
-            clearInterval(snakeGame.interval);
-            window.removeEventListener('keydown', handleSnakeInput);
-            document.getElementById('snakeOverlay').style.display = 'flex';
-        }
-
-        function handleSnakeInput(e) {
-            const key = e.key.toLowerCase();
-            if(key === 'w' && snakeGame.dir !== 'down') snakeGame.dir = 'up';
-            if(key === 's' && snakeGame.dir !== 'up') snakeGame.dir = 'down';
-            if(key === 'a' && snakeGame.dir !== 'right') snakeGame.dir = 'left';
-            if(key === 'd' && snakeGame.dir !== 'left') snakeGame.dir = 'right';
-        }
-
-        function snakeLoop() {
-            const head = {...snakeGame.snake[0]};
-            if(snakeGame.dir === 'up') head.y--;
-            if(snakeGame.dir === 'down') head.y++;
-            if(snakeGame.dir === 'left') head.x--;
-            if(snakeGame.dir === 'right') head.x++;
-            
-            if(head.x < 0 || head.x >= 30 || head.y < 0 || head.y >= 30) return stopSnake();
-            if(snakeGame.snake.some(s => s.x === head.x && s.y === head.y)) return stopSnake();
-            
-            snakeGame.snake.unshift(head);
-            if(head.x === snakeGame.food.x && head.y === snakeGame.food.y) {
-                snakeGame.score += 10;
-                document.getElementById('snakeScore').innerText = snakeGame.score;
-                snakeGame.food = { x: Math.floor(Math.random() * 30), y: Math.floor(Math.random() * 30) };
-            } else {
-                snakeGame.snake.pop();
-            }
-            drawSnake();
-        }
-
-        function drawSnake() {
-            const c = document.getElementById('snakeCanvas');
-            const ctx = c.getContext('2d');
-            ctx.fillStyle = '#9bbc0f';
-            ctx.fillRect(0,0,300,300);
-            ctx.fillStyle = '#0f380f';
-            snakeGame.snake.forEach(s => ctx.fillRect(s.x*10, s.y*10, 10, 10));
-            ctx.fillStyle = '#306230';
-            ctx.fillRect(snakeGame.food.x*10, snakeGame.food.y*10, 10, 10);
-        }
-        
-        // --- UTILS ---
-        let dragItem = null;
-        let offsetX = 0;
-        let offsetY = 0;
-        
-        function startDrag(e, id) {
-            dragItem = document.getElementById(id);
-            document.querySelectorAll('.window').forEach(w => w.style.zIndex = 10);
-            dragItem.style.zIndex = 30;
-            const rect = dragItem.getBoundingClientRect();
-            offsetX = e.clientX - rect.left;
-            offsetY = e.clientY - rect.top;
-            
-            function move(e) {
-                if(!dragItem) return;
-                dragItem.style.left = (e.clientX - offsetX + rect.width/2) + 'px';
-                dragItem.style.top = (e.clientY - offsetY + rect.height/2) + 'px';
-                dragItem.style.transform = 'translate(-50%, -50%)'; 
-            }
-            function stop() {
-                document.removeEventListener('pointermove', move);
-                document.removeEventListener('pointerup', stop);
-                dragItem = null;
-            }
-            document.addEventListener('pointermove', move);
-            document.addEventListener('pointerup', stop);
-        }
-
-        function handleCmd(e) {
-            if(e.key === 'Enter') {
-                const input = e.target;
-                const val = input.value.trim().toLowerCase();
-                const out = document.getElementById('cmd-output');
-                
-                out.innerHTML += `\nroot@pc:~$ ${input.value}`;
-                input.value = '';
-
-                if(val === 'help') out.innerHTML += `\nCommands: help, clear, hack, balance, ls, whoami, matrix, sudo`;
-                else if(val === 'clear') out.innerHTML = 'System cleared.';
-                else if(val === 'balance') out.innerHTML += `\nWallet: ${Math.floor(state.bits)} Bits`;
-                else if(val === 'ls') out.innerHTML += `\n miner.exe\n trade.exe\n system32\n passwords.txt`;
-                else if(val === 'whoami') out.innerHTML += `\nroot`;
-                else if(val === 'matrix') out.innerHTML += `\nWake up, Neo...\n[Background process started]`;
-                else if(val === 'sudo') out.innerHTML += `\nNice try.`;
-                else if(val === 'hack') {
-                    if(Math.random() > 0.5) {
-                        const gain = 100;
-                        state.bits += gain;
-                        out.innerHTML += `\n[SUCCESS] Hacked bank node. +${gain} Bits.`;
-                    } else {
-                        out.innerHTML += `\n[FAILED] Firewall detected intrusion.`;
-                    }
-                    saveGame(); // Save on hack attempt
-                }
-                else out.innerHTML += `\nCommand not found.`;
-                
-                out.scrollTop = out.scrollHeight;
-            }
-        }
-
-        // --- GAME LOOP ---
+        // --- CORE GAME LOOP & UI UPDATES (RESTORED) ---
         function gameLoop() {
             if(state.health > 0) {
                 let rate = state.autoPerSec;
-                if(state.vmActive) rate += (state.clickPower * 10); // VM boosts based on click power
+                if(state.vmActive) rate += (state.clickPower * 10);
                 state.bits += rate / 10;
             }
             updateUI();
         }
-
-        document.getElementById('mainBtn').addEventListener('pointerdown', () => {
-            let power = state.clickPower;
-            if(state.vmActive) power *= 2; // VM boosts clicking too
-            state.bits += power;
-            
-            const btn = document.getElementById('mainBtn');
-            btn.style.transform = 'scale(0.95)';
-            setTimeout(() => btn.style.transform = '', 50);
-        });
 
         function updateUI() {
             const b = Math.floor(state.bits).toLocaleString();
@@ -1405,32 +754,321 @@
             });
         }
 
+        document.getElementById('mainBtn').addEventListener('pointerdown', () => {
+            let power = state.clickPower;
+            if(state.vmActive) power *= 2; 
+            state.bits += power;
+            
+            const btn = document.getElementById('mainBtn');
+            btn.style.transform = 'scale(0.95)';
+            setTimeout(() => btn.style.transform = '', 50);
+            updateUI();
+        });
+
+        // --- SAVE SYSTEM ---
+        function getSaveObject() {
+            return {
+                bits: state.bits,
+                health: state.health,
+                hunger: state.hunger,
+                thirst: state.thirst,
+                btc: state.btc,
+                furniture: state.furniture,
+                upgradeCounts: state.upgrades.map(u => u.count),
+                staffCounts: state.staff.map(s => s.count),
+                version: GAME_VERSION
+            };
+        }
+
+        function saveGame() {
+            const saveData = getSaveObject();
+            try {
+                localStorage.setItem('cyberLifeSave_v5', JSON.stringify(saveData));
+                const btn = document.querySelector('#startMenu button span');
+                if(btn && document.getElementById('startMenu').classList.contains('flex')) {
+                    spawnFloatText("GAME SAVED", "blue");
+                }
+            } catch(e) { console.log("Save failed"); }
+        }
+
+        function loadGame() {
+            const save = localStorage.getItem('cyberLifeSave_v5');
+            if (save) restoreFromJSON(save);
+        }
+
+        function restoreFromJSON(jsonString) {
+            try {
+                const data = JSON.parse(jsonString);
+                state.bits = data.bits !== undefined ? data.bits : 100;
+                state.health = data.health !== undefined ? data.health : 100;
+                state.hunger = data.hunger !== undefined ? data.hunger : 100;
+                state.thirst = data.thirst !== undefined ? data.thirst : 100;
+                state.btc = data.btc !== undefined ? data.btc : 0;
+                if(data.furniture) state.furniture = data.furniture;
+                if (data.upgradeCounts) state.upgrades.forEach((u, i) => { if (data.upgradeCounts[i] !== undefined) u.count = data.upgradeCounts[i]; });
+                if (data.staffCounts) state.staff.forEach((s, i) => { if (data.staffCounts[i] !== undefined) s.count = data.staffCounts[i]; });
+                recalculateStats();
+                Object.keys(state.furniture).forEach(key => {
+                    if(state.furniture[key]) {
+                        const el = document.getElementById(`room-${key}`);
+                        if(el) el.style.opacity = '1';
+                    }
+                });
+                spawnFloatText("DATA LOADED", "green");
+                updateUI();
+                renderMiner(); renderStaff();
+            } catch (e) { console.error("Save file corrupted", e); }
+        }
+
+        // --- HASH SYSTEM ---
+        function safeBtoa(str) { return btoa(unescape(encodeURIComponent(str))); }
+        function safeAtob(str) { return decodeURIComponent(escape(atob(str))); }
+
+        function openSaveModal(mode) {
+            els.saveModal.classList.remove('hidden');
+            els.saveModal.classList.add('flex');
+            const title = document.getElementById('modalTitle');
+            const desc = document.getElementById('modalDesc');
+            const btn = document.getElementById('modalActionBtn');
+            const input = els.saveInput;
+
+            if (mode === 'export') {
+                title.innerText = "DATA EXPORT";
+                desc.innerText = "Copy this code.";
+                btn.innerText = "COPY";
+                btn.onclick = copySave;
+                input.readOnly = true;
+                input.value = safeBtoa(JSON.stringify(getSaveObject()));
+            } else {
+                title.innerText = "DATA IMPORT";
+                desc.innerText = "Paste code here.";
+                btn.innerText = "LOAD";
+                btn.onclick = loadFromHash;
+                input.readOnly = false;
+                input.value = "";
+                input.focus();
+            }
+        }
+
+        function closeSaveModal() {
+            els.saveModal.classList.add('hidden');
+            els.saveModal.classList.remove('flex');
+        }
+
+        function copySave() {
+            els.saveInput.select();
+            els.saveInput.setSelectionRange(0, 99999);
+            try {
+                const successful = document.execCommand('copy');
+                if(successful) spawnFloatText("COPIED!", "green");
+                else spawnFloatText("FAIL", "red");
+            } catch (err) { spawnFloatText("MANUAL COPY", "yellow"); }
+        }
+
+        function loadFromHash() {
+            const hash = els.saveInput.value.trim();
+            if (!hash) return;
+            try {
+                const json = safeAtob(hash);
+                restoreFromJSON(json);
+                closeSaveModal();
+            } catch (e) { alert("Invalid Hash Code!"); }
+        }
+
+        function recalculateStats() {
+            state.clickPower = 1;
+            state.autoPerSec = 0;
+            state.upgrades.forEach(u => { if(u.count > 0) { if(u.isClick) state.clickPower += (u.power * u.count); else state.autoPerSec += (u.power * u.count); } });
+            state.staff.forEach(s => { if(s.count > 0) state.autoPerSec += (s.gain * s.count); });
+            updateUI();
+        }
+
+        function resetData() {
+            if(confirm("Are you sure?")) { localStorage.removeItem('cyberLifeSave_v5'); location.reload(); }
+        }
+
+        function updateClock() {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        // --- NAVIGATION ---
+        function moveRoom(dir) {
+            state.roomIndex += dir;
+            if(state.roomIndex < 0) state.roomIndex = 0;
+            if(state.roomIndex > 3) state.roomIndex = 3;
+            updateRoomView();
+        }
+
+        function updateRoomView() {
+            const offset = -state.roomIndex * 100;
+            els.world.style.transform = `translateX(${offset}vw)`;
+            if (state.roomIndex === 0) { els.navLeft.style.opacity = '0'; els.navLeft.style.pointerEvents = 'none'; } 
+            else { els.navLeft.style.opacity = '1'; els.navLeft.style.pointerEvents = 'auto'; }
+            if (state.roomIndex >= 2) { els.navRight.style.opacity = '0'; els.navRight.style.pointerEvents = 'none'; } 
+            else { els.navRight.style.opacity = '1'; els.navRight.style.pointerEvents = 'auto'; }
+        }
+
+        function openFridge() { if(state.roomIndex === 0) els.fridge.style.display = 'flex'; }
+        function closeFridge() { els.fridge.style.display = 'none'; }
+
+        function buyFood(type) {
+            const costs = { soda: 50, pizza: 150, energy: 300 };
+            if(state.bits >= costs[type]) {
+                state.bits -= costs[type];
+                if(type === 'soda') state.thirst = Math.min(100, state.thirst + 30);
+                if(type === 'pizza') state.hunger = Math.min(100, state.hunger + 40);
+                if(type === 'energy') { state.hunger = 100; state.thirst = 100; }
+                spawnFloatText("TASTY!", "green");
+                updateUI();
+                saveGame();
+            } else { spawnFloatText("NO MONEY", "red"); }
+        }
+
+        // --- SURVIVAL ---
+        function survivalLoop() {
+            if(state.health <= 0) return;
+            state.hunger -= 0.5; state.thirst -= 0.8;
+            if(state.hunger < 0) state.hunger = 0;
+            if(state.thirst < 0) state.thirst = 0;
+            if(state.hunger === 0 || state.thirst === 0) state.health -= 2;
+            else if(state.health < 100 && state.hunger > 50 && state.thirst > 50) state.health += 1;
+            if(state.health <= 0) { state.health = 0; die(); }
+            updateUI();
+        }
+
+        function die() { els.death.style.display = 'flex'; els.hud.style.opacity = '0'; }
+        function respawn() {
+            state.health = 50; state.hunger = 50; state.thirst = 50;
+            state.bits = Math.floor(state.bits / 2);
+            saveGame();
+            els.death.style.display = 'none'; els.hud.style.opacity = '1';
+            state.roomIndex = 1; updateRoomView(); exitComputer(); updateUI();
+        }
+
+        // --- COMPUTER WINDOWS ---
+        function enterComputer() {
+            document.getElementById('computerView').classList.remove('hidden');
+            document.getElementById('computerView').classList.add('flex');
+            els.hud.style.display = 'none'; els.navLeft.style.display = 'none'; els.navRight.style.display = 'none';
+        }
+
+        function exitComputer() {
+            document.getElementById('computerView').classList.add('hidden');
+            document.getElementById('computerView').classList.remove('flex');
+            document.getElementById('startMenu').classList.remove('flex');
+            document.getElementById('startMenu').classList.add('hidden');
+            els.hud.style.display = 'flex';
+            updateRoomView();
+        }
+
+        function toggleStart() {
+            const menu = document.getElementById('startMenu');
+            if(menu.classList.contains('hidden')) { menu.classList.remove('hidden'); menu.classList.add('flex'); } 
+            else { menu.classList.add('hidden'); menu.classList.remove('flex'); }
+        }
+
+        function openApp(id) {
+            const win = document.getElementById(`win-${id}`);
+            document.querySelectorAll('.window').forEach(w => w.style.zIndex = 10);
+            win.style.zIndex = 30; win.classList.add('active');
+            if(id === 'browser') goBrowser();
+            if(id === 'staff') renderStaff();
+        }
+
+        function closeApp(id) { document.getElementById(`win-${id}`).classList.remove('active'); if(id === 'snake') stopSnake(); }
+
+        // --- APP STORE LOGIC ---
+        function installApp(appId) {
+            const btn = document.getElementById(`btn-install-${appId}`);
+            if(btn.disabled) return;
+            btn.innerText = "...";
+            setTimeout(() => {
+                btn.innerText = "OK"; btn.className = "bg-gray-400 text-white px-4 py-1 rounded text-xs font-bold cursor-default"; btn.disabled = true;
+                const grid = document.getElementById('desktop-grid');
+                const icon = document.createElement('div');
+                icon.className = "desktop-icon text-white shadow-black drop-shadow-md animate-bounce";
+                icon.onclick = () => openApp(appId);
+                let iconHtml = '';
+                if(appId === 'snake') iconHtml = `<div class="w-12 h-12 bg-green-600 rounded flex items-center justify-center text-2xl">🐍</div><div class="text-xs text-center bg-black/50 px-1 rounded">Snake.exe</div>`;
+                if(appId === 'vm') iconHtml = `<div class="w-12 h-12 bg-indigo-600 rounded flex items-center justify-center text-2xl">💻</div><div class="text-xs text-center bg-black/50 px-1 rounded">VirtuBox</div>`;
+                if(appId === 'staff') iconHtml = `<div class="w-12 h-12 bg-orange-600 rounded flex items-center justify-center text-2xl">👔</div><div class="text-xs text-center bg-black/50 px-1 rounded">HR Mgr</div>`;
+                icon.innerHTML = iconHtml; grid.appendChild(icon);
+                setTimeout(() => icon.classList.remove('animate-bounce'), 1000);
+            }, 1000);
+        }
+
+        // --- VM LOGIC ---
+        function toggleVmTerminal() {
+            const term = document.getElementById('vm-terminal');
+            term.style.display = term.style.display === 'flex' ? 'none' : 'flex';
+            if(term.style.display === 'flex') document.getElementById('vm-input').focus();
+        }
+
+        function handleVmCmd(e) {
+            if(e.key === 'Enter') {
+                const input = e.target.value.trim(); e.target.value = '';
+                const log = document.getElementById('vm-term-log');
+                log.innerHTML += `root@server:~$ ${input}<br>`;
+                if(input === './start_miner.sh') {
+                    if(!state.vmActive) { state.vmActive = true; log.innerHTML += `<span class='text-yellow-400'>[OK] Started (PID: 1337)</span><br>`; } 
+                    else { log.innerHTML += `<span class='text-red-400'>[ERR] Running.</span><br>`; }
+                } else if(input === './stop_miner.sh') { state.vmActive = false; log.innerHTML += `[OK] Stopped.<br>`; }
+                else { log.innerHTML += `bash: ${input}: not found<br>`; }
+                log.scrollTop = log.scrollHeight;
+            }
+        }
+
+        // --- STAFF LOGIC ---
+        function renderStaff() {
+            const list = document.getElementById('staff-list');
+            list.innerHTML = '';
+            state.staff.forEach((s, i) => {
+                const div = document.createElement('div');
+                div.className = "bg-white p-3 rounded shadow flex justify-between items-center";
+                div.innerHTML = `<div class="flex gap-3 items-center"><div class="text-3xl">${s.icon}</div><div><div class="font-bold text-slate-800">${s.name}</div><div class="text-xs text-slate-500">+${s.gain}/s | Lvl: ${s.count}</div></div></div><button onclick="hireStaff(${i})" class="bg-green-600 text-white px-3 py-1 rounded font-bold text-sm">Hire (${s.cost})</button>`;
+                list.appendChild(div);
+            });
+        }
+
+        function hireStaff(index) {
+            const s = state.staff[index];
+            if(state.bits >= s.cost) {
+                state.bits -= s.cost; s.count++; state.autoPerSec += s.gain;
+                renderStaff(); updateUI(); spawnFloatText("HIRED!", "green"); saveGame();
+            } else { spawnFloatText("NO MONEY", "red"); }
+        }
+
+        // --- FUNCTIONS ---
         function renderMiner() {
             const list = document.getElementById('minerUpgrades');
             list.innerHTML = '';
             state.upgrades.forEach((u, i) => {
                 const div = document.createElement('div');
                 div.className = "bg-gray-900 p-2 rounded flex justify-between items-center border border-gray-600 cursor-pointer hover:bg-gray-800";
-                div.onclick = () => {
-                    const cost = Math.floor(u.cost * Math.pow(1.2, u.count));
-                    if(state.bits >= cost) {
-                        state.bits -= cost;
-                        u.count++;
-                        if(u.isClick) state.clickPower += u.power;
-                        else state.autoPerSec += u.power;
-                        updateUI();
-                        saveGame(); // Save on upgrade
-                    }
-                };
+                div.onclick = () => buyUpgrade(i);
                 div.innerHTML = `
                     <div class="text-xs font-bold text-blue-200">${u.name} <span class="text-gray-400 text-[10px]">(+${u.power})</span></div>
                     <div class="text-right">
-                        <div class="text-xs text-yellow-400"><span id="upg-cost-${i}">${u.cost}</span></div>
-                        <div class="text--[10px] text-gray-500">Lvl <span id="upg-count-${i}">0</span></div>
+                        <div class="text-xs text-yellow-400"><span id="upg-cost-${i}">${Math.floor(u.cost * Math.pow(1.2, u.count))}</span></div>
+                        <div class="text--[10px] text-gray-500">Lvl <span id="upg-count-${i}">${u.count}</span></div>
                     </div>
                 `;
                 list.appendChild(div);
             });
+        }
+
+        function buyUpgrade(index) {
+            const u = state.upgrades[index];
+            const cost = Math.floor(u.cost * Math.pow(1.2, u.count));
+            if(state.bits >= cost) {
+                state.bits -= cost;
+                u.count++;
+                recalculateStats();
+                renderMiner(); // Update costs display
+                saveGame();
+            } else {
+                spawnFloatText("NO MONEY", "red");
+            }
         }
 
         function renderShop() {
@@ -1457,7 +1095,11 @@
                 document.getElementById(`room-${id}`).style.opacity = '1';
                 spawnFloatText("INSTALLED", "purple");
                 updateUI();
-                saveGame(); // Save on decor
+                saveGame();
+            } else if (state.furniture[id]) {
+                spawnFloatText("OWNED", "yellow");
+            } else {
+                spawnFloatText("NO MONEY", "red");
             }
         }
 
@@ -1481,9 +1123,86 @@
             }
             document.getElementById('cryptoWallet').innerText = state.btc.toFixed(4);
             updateUI();
-            saveGame(); // Save on trade
+            saveGame();
         }
 
+        // --- BROWSER ---
+        function handleBrowser(e) { if(e.key === 'Enter') goBrowser(); }
+        function goBrowser() {
+            const url = document.getElementById('browser-url').value;
+            const content = document.getElementById('browser-content');
+            if(url.includes('welcome.dat')) {
+                content.innerHTML = `<div class="p-8 text-center"><h1 class="text-4xl font-bold text-blue-600 mb-4">NetScape</h1><div class="mt-8 flex flex-col gap-2 items-center"><a onclick="visit('http://news.net')" class="text-blue-500 underline cursor-pointer">News</a><a onclick="visit('http://casino.win')" class="text-blue-500 underline cursor-pointer">Casino</a><a onclick="visit('http://dark.net')" class="text-purple-500 underline cursor-pointer">DarkNet</a></div></div>`;
+            } else if (url.includes('casino.win')) {
+                content.innerHTML = `<div class="p-8 text-center bg-green-50"><h1 class="text-4xl font-bold text-green-600 mb-4">🎰 LUCKY 🎰</h1><div class="border-4 border-yellow-400 p-4 inline-block bg-black text-yellow-500 font-mono text-4xl mb-4" id="slots">7 7 7</div><br><button onclick="spinSlots()" class="bg-red-600 text-white px-6 py-2 rounded font-bold text-xl shadow-lg">SPIN (100)</button><div id="casino-msg" class="mt-4 font-bold h-6"></div></div>`;
+            } else { content.innerHTML = `<div class="p-8 text-center text-gray-400">404 Not Found</div>`; }
+        }
+        function visit(url) { document.getElementById('browser-url').value = url; goBrowser(); }
+
+        function spinSlots() {
+            if(state.bits < 100) return;
+            state.bits -= 100; updateUI();
+            const slotEl = document.getElementById('slots');
+            let i = 0;
+            const interval = setInterval(() => {
+                slotEl.innerText = `${Math.floor(Math.random()*9)} ${Math.floor(Math.random()*9)} ${Math.floor(Math.random()*9)}`;
+                if(++i > 10) {
+                    clearInterval(interval);
+                    const [n1, n2, n3] = [Math.floor(Math.random()*5), Math.floor(Math.random()*5), Math.floor(Math.random()*5)];
+                    slotEl.innerText = `${n1} ${n2} ${n3}`;
+                    if(n1===n2 && n2===n3) { state.bits += 1000; document.getElementById('casino-msg').innerText = "JACKPOT!"; }
+                    else { document.getElementById('casino-msg').innerText = "LOST"; }
+                    updateUI(); saveGame();
+                }
+            }, 50);
+        }
+
+        // --- UTILS ---
+        let dragItem = null;
+        let offsetX = 0, offsetY = 0;
+        
+        function startDrag(e, id) {
+            if(state.isMobile) return; // Disable dragging on mobile for simpler UI
+            dragItem = document.getElementById(id);
+            document.querySelectorAll('.window').forEach(w => w.style.zIndex = 10);
+            dragItem.style.zIndex = 30;
+            const rect = dragItem.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            
+            function move(e) {
+                if(!dragItem) return;
+                dragItem.style.left = (e.clientX - offsetX + rect.width/2) + 'px';
+                dragItem.style.top = (e.clientY - offsetY + rect.height/2) + 'px';
+                dragItem.style.transform = 'translate(-50%, -50%)'; 
+            }
+            function stop() {
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', stop);
+                dragItem = null;
+            }
+            document.addEventListener('pointermove', move);
+            document.addEventListener('pointerup', stop);
+        }
+
+        function handleCmd(e) {
+            if(e.key === 'Enter') {
+                const val = e.target.value.trim().toLowerCase(); e.target.value = '';
+                const out = document.getElementById('cmd-output');
+                out.innerHTML += `\n> ${val}`;
+                if(val === 'help') out.innerHTML += `\ncmds: help, clear, hack, balance, ls`;
+                else if(val === 'hack') { 
+                    if(Math.random()>0.5) { state.bits+=100; out.innerHTML += `\n[OK] +100 Bits`; } 
+                    else out.innerHTML += `\n[FAIL] Detected`; 
+                    saveGame();
+                }
+                else if(val === 'clear') out.innerHTML = '';
+                else out.innerHTML += `\nUnknown`;
+                out.scrollTop = out.scrollHeight;
+            }
+        }
+
+        // --- GRAPHICS ---
         function renderChart() {
             const c = document.getElementById('chartCanvas');
             if(!c) return;
@@ -1491,18 +1210,14 @@
             const w = ctx.canvas.width = ctx.canvas.parentElement.offsetWidth;
             const h = ctx.canvas.height = ctx.canvas.parentElement.offsetHeight;
             ctx.clearRect(0,0,w,h);
-            const min = Math.min(...state.priceHistory);
-            const max = Math.max(...state.priceHistory);
-            ctx.beginPath();
-            ctx.strokeStyle = state.priceHistory.at(-1) >= state.priceHistory.at(-2) ? '#22c55e' : '#ef4444';
-            ctx.lineWidth = 2;
+            const min = Math.min(...state.priceHistory), max = Math.max(...state.priceHistory);
+            ctx.beginPath(); ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2;
             state.priceHistory.forEach((p, i) => {
                 const x = (i / 49) * w;
                 const y = h - ((p - min) / (max - min || 1)) * (h - 20) - 10;
                 i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
             });
-            ctx.stroke();
-            requestAnimationFrame(renderChart);
+            ctx.stroke(); requestAnimationFrame(renderChart);
         }
 
         function spawnFloatText(text, color='white') {
