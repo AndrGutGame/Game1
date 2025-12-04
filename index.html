@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Life Simulator v5.3 (Client Save)</title>
+    <title>Cyber Life Simulator v5.4 (Hash Save)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; touch-action: manipulation; user-select: none; font-family: 'Courier New', monospace; }
@@ -69,6 +69,11 @@
     </style>
 </head>
 <body class="h-screen w-screen text-white bg-black overflow-hidden">
+
+    <!-- VERSION LABEL (Added per request) -->
+    <div class="absolute top-4 right-4 z-[60] bg-black/80 border border-green-800 px-3 py-1 text-xs text-green-500 font-mono select-none pointer-events-none">
+        VER: <span id="versionLabel">5.4.0</span>
+    </div>
 
     <!-- === GAME WORLD === -->
     <div id="worldContainer" class="absolute inset-0 flex w-[400vw] h-full">
@@ -250,6 +255,26 @@
             <button onclick="respawn()" class="w-full py-3 bg-red-900/10 border border-red-800/50 text-red-400 font-bold hover:bg-red-900/30 hover:text-white transition cursor-pointer tracking-[0.2em]">
                 RECONNECT [PENALTY: 50% BITS]
             </button>
+        </div>
+    </div>
+
+    <!-- === SAVE MODAL (ADDED) === -->
+    <div id="saveModal" class="fixed inset-0 bg-black/90 z-[70] hidden items-center justify-center backdrop-blur-sm">
+        <div class="w-[500px] max-w-full bg-slate-900 border border-green-500 p-6 rounded shadow-[0_0_50px_rgba(34,197,94,0.2)]">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-green-400 font-mono" id="modalTitle">DATA EXPORT</h2>
+                <button onclick="closeSaveModal()" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <p class="text-xs text-gray-400 mb-2 font-mono" id="modalDesc">Copy this code to save your progress on another device.</p>
+            <textarea id="saveInput" class="w-full h-32 bg-black border border-gray-700 text-green-500 p-2 text-xs font-mono resize-none focus:border-green-500 outline-none mb-4 rounded"></textarea>
+            <div class="flex gap-2">
+                <button id="modalActionBtn" onclick="copySave()" class="flex-1 bg-green-900/50 hover:bg-green-800 border border-green-700 text-green-100 py-2 rounded font-mono text-sm transition cursor-pointer">
+                    COPY TO CLIPBOARD
+                </button>
+                <button onclick="closeSaveModal()" class="px-4 py-2 border border-gray-600 text-gray-400 hover:text-white rounded font-mono text-sm cursor-pointer">
+                    CLOSE
+                </button>
+            </div>
         </div>
     </div>
 
@@ -506,7 +531,7 @@
             <!-- Guest OS View -->
             <div class="flex-1 bg-[#2c001e] relative overflow-hidden font-sans select-none">
                 <!-- Guest Wallpaper -->
-                <div class="absolute inset-0 opacity-50 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]"></div>
+                <div class="absolute inset-0 opacity-50 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyIiBjeT0iMiIgcj0iMiIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]"></div>
                 
                 <!-- Guest Icons -->
                 <div class="absolute top-2 left-2 flex flex-col gap-4">
@@ -573,14 +598,25 @@
         </div>
         
         <!-- Start Menu -->
-        <div id="startMenu" class="absolute bottom-12 left-2 w-48 bg-gray-800 border border-gray-600 rounded shadow-xl hidden flex-col p-1 z-50">
-            <div class="px-2 py-2 border-b border-gray-700 mb-1 text-xs text-gray-400">System</div>
+        <div id="startMenu" class="absolute bottom-12 left-2 w-56 bg-gray-800 border border-gray-600 rounded shadow-xl hidden flex-col p-1 z-50">
+            <div class="px-2 py-2 border-b border-gray-700 mb-1 text-xs text-gray-400">System Control</div>
+            
             <button onclick="saveGame()" class="w-full text-left px-2 py-2 hover:bg-blue-900/50 text-blue-300 rounded text-sm flex items-center gap-2 cursor-pointer">
-                <span>💾</span> Save Game
+                <span>💾</span> Quick Save (Local)
             </button>
+            
+            <button onclick="openSaveModal('export')" class="w-full text-left px-2 py-2 hover:bg-green-900/50 text-green-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+                <span>📤</span> Export Data (Hash)
+            </button>
+            
+            <button onclick="openSaveModal('import')" class="w-full text-left px-2 py-2 hover:bg-yellow-900/50 text-yellow-300 rounded text-sm flex items-center gap-2 cursor-pointer">
+                <span>📥</span> Import Data (Hash)
+            </button>
+
             <button onclick="resetData()" class="w-full text-left px-2 py-2 hover:bg-red-900/50 text-red-300 rounded text-sm flex items-center gap-2 cursor-pointer">
                 <span>🗑️</span> Reset Data
             </button>
+
             <div class="h-px bg-gray-700 my-1"></div>
             <button onclick="exitComputer()" class="w-full text-left px-2 py-2 hover:bg-gray-700 text-gray-300 rounded text-sm flex items-center gap-2 cursor-pointer">
                 <span>⏻</span> Shut Down (Exit)
@@ -590,6 +626,9 @@
     </div>
 
     <script>
+        // --- CONSTANTS ---
+        const GAME_VERSION = "5.4.0";
+
         // --- STATE ---
         const state = {
             roomIndex: 1,
@@ -635,10 +674,13 @@
             navRight: document.getElementById('btnRight'),
             hud: document.getElementById('survivalHUD'),
             fridge: document.getElementById('fridgeUI'),
-            death: document.getElementById('deathScreen')
+            death: document.getElementById('deathScreen'),
+            saveModal: document.getElementById('saveModal'),
+            saveInput: document.getElementById('saveInput')
         };
 
         function init() {
+            document.getElementById('versionLabel').innerText = GAME_VERSION;
             loadGame(); // Load save data first
             updateRoomView();
             renderMiner();
@@ -659,8 +701,8 @@
         }
 
         // --- SAVE SYSTEM ---
-        function saveGame() {
-            const saveData = {
+        function getSaveObject() {
+            return {
                 bits: state.bits,
                 health: state.health,
                 hunger: state.hunger,
@@ -669,8 +711,13 @@
                 furniture: state.furniture,
                 // Only save counts to avoid overwriting logic updates
                 upgradeCounts: state.upgrades.map(u => u.count),
-                staffCounts: state.staff.map(s => s.count)
+                staffCounts: state.staff.map(s => s.count),
+                version: GAME_VERSION
             };
+        }
+
+        function saveGame() {
+            const saveData = getSaveObject();
             try {
                 localStorage.setItem('cyberLifeSave_v5', JSON.stringify(saveData));
                 const btn = document.querySelector('#startMenu button span');
@@ -684,11 +731,13 @@
 
         function loadGame() {
             const save = localStorage.getItem('cyberLifeSave_v5');
-            if (!save) return;
+            if (save) restoreFromJSON(save);
+        }
 
+        function restoreFromJSON(jsonString) {
             try {
-                const data = JSON.parse(save);
-                // Fix: Check for undefined instead of using || (which fails on 0)
+                const data = JSON.parse(jsonString);
+                
                 state.bits = data.bits !== undefined ? data.bits : 100;
                 state.health = data.health !== undefined ? data.health : 100;
                 state.hunger = data.hunger !== undefined ? data.hunger : 100;
@@ -723,9 +772,93 @@
                 });
 
                 spawnFloatText("DATA LOADED", "green");
-
+                updateUI();
+                renderMiner(); // Update costs visuals
+                renderStaff();
             } catch (e) {
                 console.error("Save file corrupted", e);
+                spawnFloatText("LOAD ERROR", "red");
+            }
+        }
+
+        // --- HASH SYSTEM ---
+        // Helper to safe encode Unicode strings to Base64
+        function safeBtoa(str) {
+            return btoa(unescape(encodeURIComponent(str)));
+        }
+
+        // Helper to safe decode Base64 to Unicode strings
+        function safeAtob(str) {
+            return decodeURIComponent(escape(atob(str)));
+        }
+
+        function openSaveModal(mode) {
+            els.saveModal.classList.remove('hidden');
+            els.saveModal.classList.add('flex');
+            
+            const title = document.getElementById('modalTitle');
+            const desc = document.getElementById('modalDesc');
+            const btn = document.getElementById('modalActionBtn');
+            const input = els.saveInput;
+
+            if (mode === 'export') {
+                title.innerText = "DATA EXPORT (HASH)";
+                desc.innerText = "Copy this encrypted code to save progress.";
+                btn.innerText = "COPY TO CLIPBOARD";
+                btn.onclick = copySave;
+                input.readOnly = true;
+                
+                // Generate Hash
+                // FIX: Use safeBtoa to handle Russian characters (Unicode)
+                const json = JSON.stringify(getSaveObject());
+                const encoded = safeBtoa(json);
+                input.value = encoded;
+                
+            } else {
+                title.innerText = "DATA IMPORT (HASH)";
+                desc.innerText = "Paste your save code here to restore progress.";
+                btn.innerText = "LOAD DATA";
+                btn.onclick = loadFromHash;
+                input.readOnly = false;
+                input.value = "";
+                input.focus();
+            }
+        }
+
+        function closeSaveModal() {
+            els.saveModal.classList.add('hidden');
+            els.saveModal.classList.remove('flex');
+        }
+
+        function copySave() {
+            els.saveInput.select();
+            els.saveInput.setSelectionRange(0, 99999);
+            
+            // FIX: Use document.execCommand instead of navigator.clipboard for iframe support
+            try {
+                const successful = document.execCommand('copy');
+                if(successful) {
+                    spawnFloatText("COPIED!", "green");
+                } else {
+                    spawnFloatText("COPY FAILED", "red");
+                }
+            } catch (err) {
+                console.error('Fallback copy failed', err);
+                spawnFloatText("MANUAL COPY", "yellow");
+            }
+        }
+
+        function loadFromHash() {
+            const hash = els.saveInput.value.trim();
+            if (!hash) return;
+            try {
+                // Decode Hash
+                // FIX: Use safeAtob to handle Unicode characters
+                const json = safeAtob(hash);
+                restoreFromJSON(json);
+                closeSaveModal();
+            } catch (e) {
+                alert("Invalid Hash Code!");
             }
         }
 
