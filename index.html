@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cyber Life Simulator v5.5.7 (Bug Fixes)</title>
+    <title>Cyber Life Simulator v5.7.0 (Browser Update)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -93,7 +93,7 @@
 
     <!-- VERSION LABEL -->
     <div class="absolute top-1 right-1 z-[60] bg-black/40 border border-green-900/50 px-2 py-0.5 text-[10px] text-green-600/50 font-mono select-none pointer-events-none">
-        VER: <span id="versionLabel">5.5.7</span>
+        VER: <span id="versionLabel">5.7.0</span>
     </div>
 
     <!-- DEVICE SELECTION SCREEN -->
@@ -114,7 +114,7 @@
                 <span class="text-[10px] opacity-60 font-sans font-normal">Touchscreen</span>
             </button>
         </div>
-        <p class="mt-12 text-xs text-gray-600 font-mono">v5.5.7 - Fixed Nav & Gestures</p>
+        <p class="mt-12 text-xs text-gray-600 font-mono">v5.7.0 - Browser Update</p>
     </div>
 
     <!-- ROTATE OVERLAY -->
@@ -133,7 +133,7 @@
             <div class="absolute bottom-0 h-[30%] w-full bg-[#2a2a2c] border-t border-gray-700"></div>
 
             <!-- Fridge -->
-            <div onclick="openFridge()" class="absolute bottom-20 left-1/3 w-32 md:w-40 h-64 md:h-80 bg-gray-300 border-4 border-gray-400 rounded shadow-lg cursor-pointer hover:brightness-110 transition group z-20 flex flex-col items-center">
+            <div onclick="openFridge()" class="absolute bottom-20 left-[20%] w-32 md:w-40 h-64 md:h-80 bg-gray-300 border-4 border-gray-400 rounded shadow-lg cursor-pointer hover:brightness-110 transition group z-20 flex flex-col items-center">
                 <div class="w-full h-[40%] border-b-4 border-gray-400 relative bg-gray-200">
                     <div class="absolute top-4 right-4 w-2 h-8 bg-gray-400 rounded"></div>
                 </div>
@@ -143,6 +143,29 @@
                 </div>
                 <div class="absolute inset-0 bg-blue-400/0 group-hover:bg-blue-400/10 transition duration-300 pointer-events-none"></div>
             </div>
+
+            <!-- Stove / Counter -->
+            <div class="absolute bottom-20 left-[45%] w-32 md:w-40 h-40 md:h-48 bg-gray-700 border-4 border-gray-600 rounded flex flex-col justify-end items-center shadow-xl">
+                <div class="w-full h-4 bg-black/50 mb-auto mt-2"></div> <!-- Stove top -->
+                <div class="w-full flex justify-center gap-4 mb-auto">
+                     <div class="w-6 h-6 rounded-full border border-gray-500 bg-black/30"></div>
+                     <div class="w-6 h-6 rounded-full border border-gray-500 bg-black/30"></div>
+                </div>
+                <div class="w-[80%] h-[40%] border-2 border-gray-500 rounded mb-4 bg-orange-500/5 flex items-center justify-center overflow-hidden">
+                    <div class="w-full h-1 bg-orange-500/20 rotate-45"></div>
+                </div> <!-- Oven Window -->
+            </div>
+
+            <!-- Table -->
+            <div class="absolute bottom-10 right-[10%] w-48 md:w-64 h-24 md:h-32 bg-[#4a3a30] border-t-8 border-[#5a4a40] shadow-2xl flex items-end justify-center z-20">
+                <div class="w-4 h-full bg-[#3a2a20] absolute left-4 top-0"></div>
+                <div class="w-4 h-full bg-[#3a2a20] absolute right-4 top-0"></div>
+                <!-- Mug -->
+                <div class="w-6 h-8 bg-white absolute -top-8 left-10 rounded-sm flex items-center justify-center">
+                    <div class="text-[8px]">☕</div>
+                </div>
+            </div>
+
             <div class="absolute top-10 text-gray-600 font-bold text-4xl select-none">KITCHEN</div>
         </div>
 
@@ -327,11 +350,20 @@
             <button onclick="closeFridge()" class="absolute top-2 right-2 text-gray-400 hover:text-white text-2xl p-2 cursor-pointer">✕</button>
             <h2 class="text-2xl font-bold text-blue-300 mb-4 flex items-center gap-2">❄️ FOOD STORAGE</h2>
             <div class="space-y-2">
+                 <div onclick="buyFood('water')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
+                    <div class="flex items-center gap-3"><div class="text-2xl">💧</div><div><div class="font-bold text-blue-300">Pure Water</div><div class="text-[10px] text-gray-400">+40 Water</div></div></div><div class="font-mono text-yellow-400">20 ₿</div>
+                </div>
                 <div onclick="buyFood('soda')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
                     <div class="flex items-center gap-3"><div class="text-2xl">🥤</div><div><div class="font-bold text-blue-400">Cola</div><div class="text-[10px] text-gray-400">+30 Water</div></div></div><div class="font-mono text-yellow-400">50 ₿</div>
                 </div>
+                <div onclick="buyFood('noodles')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
+                    <div class="flex items-center gap-3"><div class="text-2xl">🍜</div><div><div class="font-bold text-yellow-400">Spicy Noodles</div><div class="text-[10px] text-gray-400">+25 Food | +10 Water</div></div></div><div class="font-mono text-yellow-400">80 ₿</div>
+                </div>
                 <div onclick="buyFood('pizza')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
                     <div class="flex items-center gap-3"><div class="text-2xl">🍕</div><div><div class="font-bold text-orange-400">Pizza</div><div class="text-[10px] text-gray-400">+40 Food</div></div></div><div class="font-mono text-yellow-400">150 ₿</div>
+                </div>
+                <div onclick="buyFood('burger')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
+                    <div class="flex items-center gap-3"><div class="text-2xl">🍔</div><div><div class="font-bold text-orange-500">Synth-Burger</div><div class="text-[10px] text-gray-400">+60 Food</div></div></div><div class="font-mono text-yellow-400">200 ₿</div>
                 </div>
                 <div onclick="buyFood('energy')" class="flex justify-between items-center bg-gray-900 p-3 rounded cursor-pointer hover:bg-gray-700 transition border border-gray-700">
                     <div class="flex items-center gap-3"><div class="text-2xl">⚡</div><div><div class="font-bold text-purple-400">Energy</div><div class="text-[10px] text-gray-400">FULL RESTORE</div></div></div><div class="font-mono text-yellow-400">300 ₿</div>
@@ -469,6 +501,7 @@
                 <button onclick="closeApp('browser')" class="text-gray-400 hover:text-white hover:bg-red-500 px-2 rounded text-lg">✕</button>
             </div>
             <div class="h-10 bg-gray-200 flex items-center px-2 gap-2 border-b border-gray-400 shrink-0">
+                <button class="text-gray-500 hover:text-black text-xl" onclick="visit('http://welcome.dat')">🏠</button>
                 <button class="text-gray-500 hover:text-black text-xl">◀</button>
                 <button class="text-gray-500 hover:text-black text-xl">▶</button>
                 <button class="text-gray-500 hover:text-black text-xl">↻</button>
@@ -634,7 +667,7 @@
 
     <script>
         // --- CONSTANTS ---
-        const GAME_VERSION = "5.5.7"; // Updated version
+        const GAME_VERSION = "5.7.0"; // Updated version
 
         // --- STATE ---
         const state = {
@@ -934,11 +967,14 @@
         function closeFridge() { els.fridge.style.display = 'none'; }
 
         function buyFood(type) {
-            const costs = { soda: 50, pizza: 150, energy: 300 };
+            const costs = { water: 20, soda: 50, noodles: 80, pizza: 150, burger: 200, energy: 300 };
             if(state.bits >= costs[type]) {
                 state.bits -= costs[type];
+                if(type === 'water') state.thirst = Math.min(100, state.thirst + 40);
                 if(type === 'soda') state.thirst = Math.min(100, state.thirst + 30);
+                if(type === 'noodles') { state.hunger = Math.min(100, state.hunger + 25); state.thirst = Math.min(100, state.thirst + 10); }
                 if(type === 'pizza') state.hunger = Math.min(100, state.hunger + 40);
+                if(type === 'burger') state.hunger = Math.min(100, state.hunger + 60);
                 if(type === 'energy') { state.hunger = 100; state.thirst = 100; }
                 spawnFloatText("TASTY!", "green");
                 updateUI();
@@ -1155,15 +1191,121 @@
 
         // --- BROWSER ---
         function handleBrowser(e) { if(e.key === 'Enter') goBrowser(); }
+        
         function goBrowser() {
             const url = document.getElementById('browser-url').value;
             const content = document.getElementById('browser-content');
+            
             if(url.includes('welcome.dat')) {
-                content.innerHTML = `<div class="p-8 text-center"><h1 class="text-4xl font-bold text-blue-600 mb-4">NetScape</h1><div class="mt-8 flex flex-col gap-2 items-center"><a onclick="visit('http://news.net')" class="text-blue-500 underline cursor-pointer">News</a><a onclick="visit('http://casino.win')" class="text-blue-500 underline cursor-pointer">Casino</a><a onclick="visit('http://dark.net')" class="text-purple-500 underline cursor-pointer">DarkNet</a></div></div>`;
+                content.innerHTML = `
+                    <div class="p-8 text-center font-sans">
+                        <h1 class="text-4xl font-bold text-blue-600 mb-4">NetScape 2077</h1>
+                        <p class="text-gray-600 mb-8">Gateway to the Net</p>
+                        <div class="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                            <div onclick="visit('http://news.net')" class="p-4 border rounded cursor-pointer hover:bg-blue-50 flex flex-col items-center text-blue-600">
+                                <i class="fas fa-newspaper text-2xl mb-2"></i>
+                                <span class="font-bold">News</span>
+                            </div>
+                            <div onclick="visit('http://casino.win')" class="p-4 border rounded cursor-pointer hover:bg-green-50 flex flex-col items-center text-green-600">
+                                <i class="fas fa-dice text-2xl mb-2"></i>
+                                <span class="font-bold">Casino</span>
+                            </div>
+                            <div onclick="visit('http://dark.net')" class="p-4 border rounded cursor-pointer hover:bg-purple-50 flex flex-col items-center text-purple-600">
+                                <i class="fas fa-user-secret text-2xl mb-2"></i>
+                                <span class="font-bold">DarkNet</span>
+                            </div>
+                            <div onclick="visit('http://jobs.net')" class="p-4 border rounded cursor-pointer hover:bg-orange-50 flex flex-col items-center text-orange-600">
+                                <i class="fas fa-briefcase text-2xl mb-2"></i>
+                                <span class="font-bold">Jobs</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (url.includes('news.net')) {
+                content.innerHTML = `
+                    <div class="p-6 font-serif bg-[#fdfbf7] h-full text-black">
+                        <h1 class="text-4xl font-bold border-b-4 border-black mb-6">Night City Chronicle</h1>
+                        <div class="space-y-6">
+                            <article>
+                                <h2 class="text-2xl font-bold hover:underline cursor-pointer">AI Rights Bill Passed</h2>
+                                <p class="text-sm text-gray-500 mb-2">By Sarah Connor | 2 mins ago</p>
+                                <p>The senate has finally approved the bill granting basic rights to Class-4 sentient AIs...</p>
+                            </article>
+                            <article>
+                                <h2 class="text-2xl font-bold hover:underline cursor-pointer">Crypto Market Volatility</h2>
+                                <p class="text-sm text-gray-500 mb-2">By Satoshi N. | 1 hour ago</p>
+                                <p>Analysts predict a massive surge in Bitcoin value following the latest energy crisis...</p>
+                            </article>
+                        </div>
+                        <div class="mt-8 text-center">
+                            <button onclick="visit('http://welcome.dat')" class="text-blue-600 hover:underline">← Back to Home</button>
+                        </div>
+                    </div>
+                `;
+            } else if (url.includes('dark.net')) {
+                content.innerHTML = `
+                    <div class="p-6 font-mono bg-gray-900 text-green-400 h-full">
+                        <h1 class="text-2xl border-b border-green-800 mb-4 pb-2">/root/forum/general</h1>
+                        <div class="space-y-4">
+                            <div class="bg-black/50 p-2 border-l-2 border-green-600">
+                                <div class="text-xs text-gray-500">User: Neo_1337</div>
+                                <div class="font-bold">Subject: Corp Firewall Exploit</div>
+                                <p class="text-sm opacity-80">Selling 0-day exploit for Arasaka mainframe. 5000 BTC. DM me.</p>
+                            </div>
+                            <div class="bg-black/50 p-2 border-l-2 border-purple-600">
+                                <div class="text-xs text-gray-500">User: Morpheus_X</div>
+                                <div class="font-bold">Subject: Recruitment</div>
+                                <p class="text-sm opacity-80">Looking for runners for a quiet job. High risk, high reward.</p>
+                            </div>
+                        </div>
+                        <div class="mt-8 text-center">
+                            <button onclick="visit('http://welcome.dat')" class="text-green-600 hover:underline">[Return]</button>
+                        </div>
+                    </div>
+                `;
             } else if (url.includes('casino.win')) {
-                content.innerHTML = `<div class="p-8 text-center bg-green-50"><h1 class="text-4xl font-bold text-green-600 mb-4">🎰 LUCKY 🎰</h1><div class="border-4 border-yellow-400 p-4 inline-block bg-black text-yellow-500 font-mono text-4xl mb-4" id="slots">7 7 7</div><br><button onclick="spinSlots()" class="bg-red-600 text-white px-6 py-2 rounded font-bold text-xl shadow-lg">SPIN (100)</button><div id="casino-msg" class="mt-4 font-bold h-6"></div></div>`;
-            } else { content.innerHTML = `<div class="p-8 text-center text-gray-400">404 Not Found</div>`; }
+                content.innerHTML = `
+                    <div class="p-8 text-center bg-green-50 h-full flex flex-col items-center">
+                        <h1 class="text-4xl font-bold text-green-600 mb-4">🎰 LUCKY CRYPTO 🎰</h1>
+                        <div class="border-4 border-yellow-400 p-6 bg-black text-yellow-500 font-mono text-5xl mb-8 rounded-lg shadow-xl tracking-widest" id="slots">7 7 7</div>
+                        <button onclick="spinSlots()" class="bg-gradient-to-b from-red-500 to-red-700 text-white px-8 py-4 rounded-full font-bold text-xl shadow-lg hover:scale-105 transition active:scale-95 border-b-4 border-red-900">SPIN (100 Bits)</button>
+                        <div id="casino-msg" class="mt-6 font-bold text-xl h-8"></div>
+                        <p class="mt-auto text-xs text-gray-400">House always wins. Play responsibly.</p>
+                    </div>
+                `;
+            } else if (url.includes('jobs.net')) {
+                 content.innerHTML = `
+                    <div class="p-8 bg-white h-full font-sans">
+                        <h1 class="text-3xl font-bold text-slate-700 mb-4">Job Listings</h1>
+                        <div class="space-y-2">
+                            <div class="p-3 border rounded bg-gray-50 flex justify-between items-center">
+                                <div>
+                                    <div class="font-bold">Data Entry Clerk</div>
+                                    <div class="text-xs text-gray-500">Corp Inc.</div>
+                                </div>
+                                <button class="bg-gray-300 text-gray-600 px-3 py-1 rounded text-xs cursor-not-allowed">Requires Skill: Typing 50</button>
+                            </div>
+                             <div class="p-3 border rounded bg-gray-50 flex justify-between items-center">
+                                <div>
+                                    <div class="font-bold">Security Consultant</div>
+                                    <div class="text-xs text-gray-500">Militech</div>
+                                </div>
+                                <button class="bg-gray-300 text-gray-600 px-3 py-1 rounded text-xs cursor-not-allowed">Requires Skill: Hacking 100</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else { 
+                content.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400">
+                        <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
+                        <h1 class="text-4xl font-bold mb-2">404</h1>
+                        <p>Server Not Found</p>
+                        <button onclick="visit('http://welcome.dat')" class="mt-4 text-blue-500 underline">Go Home</button>
+                    </div>`; 
+            }
         }
+
         function visit(url) { document.getElementById('browser-url').value = url; goBrowser(); }
 
         function spinSlots() {
